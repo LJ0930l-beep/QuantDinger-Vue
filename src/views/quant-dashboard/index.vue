@@ -3,29 +3,29 @@
     <header class="dashboard-header">
       <div>
         <div class="eyebrow"><a-icon type="safety-certificate" /> {{ dashboard.label }}</div>
-        <h1>Quant Command Center</h1>
-        <p>Read-only admission, risk and health preview. No exchange, executor or live order path is connected.</p>
+        <h1>量化交易指挥中心</h1>
+        <p>只读展示准入、风控与系统健康状态；未连接交易所、执行器或任何实盘下单路径。</p>
       </div>
       <div class="header-actions">
         <span class="mock-note" aria-live="polite">{{ interactionNote }}</span>
-        <a-button icon="sync" @click="refreshMock">Refresh Mock Data</a-button>
-        <a-button icon="eye" @click="toggleExpanded">Expand</a-button>
+        <a-button icon="sync" @click="refreshMock">刷新模拟数据</a-button>
+        <a-button icon="eye" @click="toggleExpanded">展开</a-button>
       </div>
     </header>
 
-    <section class="status-bar" aria-label="Trading status">
+    <section class="status-bar" aria-label="交易状态">
       <div v-for="item in statusItems" :key="item.label" class="status-item" :class="item.tone">
         <a-icon :type="item.icon" />
         <span>{{ item.label }}</span>
         <strong>{{ item.value }}</strong>
       </div>
-      <div class="status-item timestamp"><a-icon type="clock-circle" /><span>Last Updated</span><strong>{{ dashboard.status.lastUpdated }}</strong></div>
+      <div class="status-item timestamp"><a-icon type="clock-circle" /><span>最后更新</span><strong>{{ dashboard.status.lastUpdated }}</strong></div>
     </section>
 
     <section class="section-shell overview-shell" aria-labelledby="overview-heading">
       <div class="section-heading">
-        <div><span class="section-kicker">ACCOUNT</span><h2 id="overview-heading">Account Overview</h2></div>
-        <span class="read-only-badge"><a-icon type="lock" /> Read only</span>
+        <div><span class="section-kicker">账户</span><h2 id="overview-heading">账户概览</h2></div>
+        <span class="read-only-badge"><a-icon type="lock" /> 只读</span>
       </div>
       <div class="metric-grid">
         <article v-for="metric in dashboard.account" :key="metric.label" class="metric-card" :class="metric.tone">
@@ -36,16 +36,16 @@
 
     <section class="section-shell" aria-labelledby="positions-heading">
       <div class="section-heading">
-        <div><span class="section-kicker">EXPOSURE</span><h2 id="positions-heading">Positions</h2></div>
-        <a-button icon="filter" @click="filterPositions">Filter</a-button>
+        <div><span class="section-kicker">敞口</span><h2 id="positions-heading">持仓</h2></div>
+        <a-button icon="filter" @click="filterPositions">筛选</a-button>
       </div>
-      <div class="table-wrap" tabindex="0" aria-label="Mock positions table">
+      <div class="table-wrap" tabindex="0" aria-label="模拟持仓表">
         <table class="terminal-table">
-          <thead><tr><th>Symbol</th><th>Side</th><th>Quantity</th><th>Average Entry</th><th>Mark Price</th><th>Unrealized PnL</th><th>Leverage</th><th>Risk Status</th><th>Protection</th><th>Inspect</th></tr></thead>
+          <thead><tr><th>标的</th><th>方向</th><th>数量</th><th>平均入场价</th><th>标记价格</th><th>未实现盈亏</th><th>杠杆</th><th>风险状态</th><th>保护状态</th><th>查看</th></tr></thead>
           <tbody>
             <tr v-for="position in dashboard.positions" :key="position.symbol">
-              <td><strong>{{ position.symbol }}</strong></td><td><span class="pill" :class="position.side.toLowerCase()">{{ position.side }}</span></td><td>{{ position.quantity }}</td><td>{{ position.entry }}</td><td>{{ position.mark }}</td><td class="positive">{{ position.pnl }}</td><td>{{ position.leverage }}</td><td><span class="text-status healthy">{{ position.risk }}</span></td><td><span class="text-status shadow">{{ position.protection }}</span></td>
-              <td><a-button size="small" icon="search" @click="inspect(position.symbol)">Inspect</a-button></td>
+              <td><strong>{{ position.symbol }}</strong></td><td><span class="pill" :class="position.side.toLowerCase()">{{ position.side === 'LONG' ? '多' : '空' }}</span></td><td>{{ position.quantity }}</td><td>{{ position.entry }}</td><td>{{ position.mark }}</td><td class="positive">{{ position.pnl }}</td><td>{{ position.leverage }}</td><td><span class="text-status healthy">{{ position.risk }}</span></td><td><span class="text-status shadow">{{ position.protection }}</span></td>
+              <td><a-button size="small" icon="search" @click="inspect(position.symbol)">查看</a-button></td>
             </tr>
           </tbody>
         </table>
@@ -53,57 +53,57 @@
     </section>
 
     <section class="section-shell" aria-labelledby="strategy-heading">
-      <div class="section-heading"><div><span class="section-kicker">STRATEGY FACTORY</span><h2 id="strategy-heading">Strategy Cards</h2></div><span class="mock-copy">Visual placeholders only</span></div>
+      <div class="section-heading"><div><span class="section-kicker">策略工厂</span><h2 id="strategy-heading">策略卡片</h2></div><span class="mock-copy">仅用于视觉占位</span></div>
       <div class="strategy-grid">
         <article v-for="strategy in dashboard.strategies" :key="strategy.name" class="strategy-card" :class="strategy.accent">
-          <div class="strategy-title"><div><span class="mode-chip">{{ strategy.mode }}</span><h3>{{ strategy.name }}</h3></div><span class="text-status" :class="strategy.status === 'ACTIVE' ? 'healthy' : 'warning'">{{ strategy.status }}</span></div>
-          <dl><div><dt>Last Signal</dt><dd>{{ strategy.signal }}</dd></div><div><dt>Confidence</dt><dd>{{ strategy.confidence }}</dd></div><div><dt>Current Exposure</dt><dd>{{ strategy.exposure }}</dd></div><div><dt>Risk Budget</dt><dd>{{ strategy.budget }}</dd></div></dl>
-          <div class="strategy-footer"><span><a-icon type="safety" /> Kill Switch: <strong>{{ strategy.kill }}</strong></span><a-button size="small" icon="eye" @click="view(strategy.name)">View</a-button></div>
+          <div class="strategy-title"><div><span class="mode-chip">{{ modeLabel(strategy.mode) }}</span><h3>{{ strategy.name }}</h3></div><span class="text-status" :class="strategy.status === '运行中' ? 'healthy' : 'warning'">{{ strategy.status }}</span></div>
+          <dl><div><dt>最新信号</dt><dd>{{ strategy.signal }}</dd></div><div><dt>置信度</dt><dd>{{ strategy.confidence }}</dd></div><div><dt>当前敞口</dt><dd>{{ strategy.exposure }}</dd></div><div><dt>风险预算</dt><dd>{{ strategy.budget }}</dd></div></dl>
+          <div class="strategy-footer"><span><a-icon type="safety" /> 熔断开关：<strong>{{ strategy.kill }}</strong></span><a-button size="small" icon="eye" @click="view(strategy.name)">查看</a-button></div>
         </article>
       </div>
     </section>
 
     <section class="dashboard-grid signals-risk-grid">
       <article class="section-shell signal-panel" aria-labelledby="signals-heading">
-        <div class="section-heading"><div><span class="section-kicker">ADMISSION</span><h2 id="signals-heading">Recent Signals</h2></div><a-button icon="filter" @click="filterSignals">Filter</a-button></div>
+        <div class="section-heading"><div><span class="section-kicker">准入</span><h2 id="signals-heading">最近信号</h2></div><a-button icon="filter" @click="filterSignals">筛选</a-button></div>
         <div class="table-wrap compact" tabindex="0">
-          <table class="terminal-table"><thead><tr><th>Time</th><th>Symbol</th><th>Action</th><th>Source</th><th>Economic Fingerprint</th><th>Risk Effect</th><th>Admission</th><th>Decision</th><th>Reason</th></tr></thead>
-            <tbody><tr v-for="signal in visibleSignals" :key="`${signal.time}-${signal.fingerprint}`"><td>{{ signal.time }}</td><td>{{ signal.symbol }}</td><td><strong>{{ signal.action }}</strong></td><td>{{ signal.source }}</td><td><code>{{ signal.fingerprint }}</code></td><td>{{ signal.effect }}</td><td><span class="text-status" :class="admissionTone(signal.admission)">{{ signal.admission }}</span></td><td>{{ signal.decision }}</td><td>{{ signal.reason }}</td></tr></tbody>
+          <table class="terminal-table"><thead><tr><th>时间</th><th>标的</th><th>动作</th><th>来源</th><th>经济指纹</th><th>风险影响</th><th>准入状态</th><th>风控决定</th><th>原因</th></tr></thead>
+            <tbody><tr v-for="signal in visibleSignals" :key="`${signal.time}-${signal.fingerprint}`"><td>{{ signal.time }}</td><td>{{ signal.symbol }}</td><td><strong>{{ actionLabel(signal.action) }}</strong></td><td>{{ sourceLabel(signal.source) }}</td><td><code>{{ signal.fingerprint }}</code></td><td>{{ riskEffectLabel(signal.effect) }}</td><td><span class="text-status" :class="admissionTone(signal.admission)">{{ admissionLabel(signal.admission) }}</span></td><td>{{ decisionLabel(signal.decision) }}</td><td>{{ signal.reason }}</td></tr></tbody>
           </table>
         </div>
       </article>
 
       <article class="section-shell risk-panel" aria-labelledby="risk-heading">
-        <div class="section-heading"><div><span class="section-kicker">HARD RISK</span><h2 id="risk-heading">Risk Panel</h2></div><a-button icon="search" @click="inspect('risk-controls')">Inspect</a-button></div>
+        <div class="section-heading"><div><span class="section-kicker">硬风控</span><h2 id="risk-heading">风控面板</h2></div><a-button icon="search" @click="inspect('风控规则')">查看</a-button></div>
         <dl class="risk-list"><div v-for="item in dashboard.risk" :key="item.label"><dt>{{ item.label }}</dt><dd><strong :class="item.tone">{{ item.value }}</strong><small>{{ item.detail }}</small></dd></div></dl>
       </article>
     </section>
 
     <section class="section-shell" aria-labelledby="pipeline-heading">
-      <div class="section-heading"><div><span class="section-kicker">G4-A LOCKED CHAIN</span><h2 id="pipeline-heading">Admission Pipeline</h2></div><a-button icon="play-circle" @click="simulateFlow">Simulate</a-button></div>
-      <div class="pipeline" aria-label="Mock admission pipeline">
+      <div class="section-heading"><div><span class="section-kicker">G4-A 已锁定链路</span><h2 id="pipeline-heading">准入流程</h2></div><a-button icon="play-circle" @click="simulateFlow">模拟</a-button></div>
+      <div class="pipeline" aria-label="模拟准入流程">
         <template v-for="(step, index) in dashboard.pipeline">
           <article :key="step.id" class="pipeline-step" :class="step.tone"><span class="pipeline-index">0{{ index + 1 }}</span><h3>{{ step.label }}</h3><p>{{ step.sublabel }}</p><strong>{{ step.status }}</strong></article>
           <span v-if="index < dashboard.pipeline.length - 1" :key="`${step.id}-arrow`" class="pipeline-arrow" aria-hidden="true">→</span>
         </template>
       </div>
-      <div class="pipeline-cases"><span>Mock request outcomes:</span><strong class="cyan">CREATED</strong><strong class="purple">REPLAYED</strong><strong class="risk">RISK_REJECTED</strong><strong class="neutral">CANCEL</strong><strong class="healthy">PROTECTION</strong></div>
+      <div class="pipeline-cases"><span>模拟请求结果：</span><strong class="cyan">已创建</strong><strong class="purple">已重放</strong><strong class="risk">风控拒绝</strong><strong class="neutral">撤单</strong><strong class="healthy">保护单</strong></div>
     </section>
 
     <section class="dashboard-grid health-grid">
       <article class="section-shell" aria-labelledby="shadow-heading">
-        <div class="section-heading"><div><span class="section-kicker">SHADOW</span><h2 id="shadow-heading">Shadow Diff</h2></div><a-button icon="eye" @click="view('shadow-diff')">View</a-button></div>
-        <dl class="detail-list"><div><dt>Candidate State</dt><dd>{{ dashboard.shadow.candidate }}</dd></div><div><dt>Legacy State</dt><dd>{{ dashboard.shadow.legacy }}</dd></div><div><dt>Difference Count</dt><dd>{{ dashboard.shadow.differences }}</dd></div><div><dt>Match Status</dt><dd class="healthy">{{ dashboard.shadow.match }}</dd></div><div><dt>Tolerance Version</dt><dd>{{ dashboard.shadow.tolerance }}</dd></div><div><dt>Last Comparison</dt><dd>{{ dashboard.shadow.comparison }}</dd></div></dl>
+        <div class="section-heading"><div><span class="section-kicker">影子验证</span><h2 id="shadow-heading">Shadow 差异</h2></div><a-button icon="eye" @click="view('shadow-diff')">查看</a-button></div>
+        <dl class="detail-list"><div><dt>候选状态</dt><dd>{{ dashboard.shadow.candidate }}</dd></div><div><dt>旧系统状态</dt><dd>{{ dashboard.shadow.legacy }}</dd></div><div><dt>差异数量</dt><dd>{{ dashboard.shadow.differences }}</dd></div><div><dt>匹配状态</dt><dd class="healthy">{{ dashboard.shadow.match }}</dd></div><div><dt>容差版本</dt><dd>{{ dashboard.shadow.tolerance }}</dd></div><div><dt>最后比较</dt><dd>{{ dashboard.shadow.comparison }}</dd></div></dl>
       </article>
       <article class="section-shell" aria-labelledby="reconciliation-heading">
-        <div class="section-heading"><div><span class="section-kicker">HEALTH</span><h2 id="reconciliation-heading">Reconciliation &amp; Health</h2></div><a-button icon="reload" @click="refreshMock">Refresh Mock Data</a-button></div>
-        <dl class="detail-list"><div><dt>Last Run</dt><dd>{{ dashboard.reconciliation.lastRun }}</dd></div><div><dt>Checkpoint Status</dt><dd class="healthy">{{ dashboard.reconciliation.checkpoint }}</dd></div><div><dt>Discrepancy Count</dt><dd>{{ dashboard.reconciliation.discrepancies }}</dd></div><div><dt>Projection Watermark</dt><dd>{{ dashboard.reconciliation.watermark }}</dd></div><div><dt>Derived Health</dt><dd class="healthy">{{ dashboard.reconciliation.derivedHealth }}</dd></div><div><dt>Next Scheduled Check</dt><dd>{{ dashboard.reconciliation.nextCheck }}</dd></div></dl>
+        <div class="section-heading"><div><span class="section-kicker">健康度</span><h2 id="reconciliation-heading">对账与健康度</h2></div><a-button icon="reload" @click="refreshMock">刷新模拟数据</a-button></div>
+        <dl class="detail-list"><div><dt>上次运行</dt><dd>{{ dashboard.reconciliation.lastRun }}</dd></div><div><dt>检查点状态</dt><dd class="healthy">{{ dashboard.reconciliation.checkpoint }}</dd></div><div><dt>差异数量</dt><dd>{{ dashboard.reconciliation.discrepancies }}</dd></div><div><dt>投影水位</dt><dd>{{ dashboard.reconciliation.watermark }}</dd></div><div><dt>派生健康度</dt><dd class="healthy">{{ dashboard.reconciliation.derivedHealth }}</dd></div><div><dt>下次检查</dt><dd>{{ dashboard.reconciliation.nextCheck }}</dd></div></dl>
       </article>
     </section>
 
     <section class="section-shell timeline-shell" aria-labelledby="timeline-heading">
-      <div class="section-heading"><div><span class="section-kicker">EVENTS</span><h2 id="timeline-heading">Event Timeline</h2></div><a-button icon="down" @click="toggleExpanded">Expand</a-button></div>
-      <ol class="timeline"><li v-for="event in timelineEvents" :key="`${event.time}-${event.type}`"><span class="timeline-dot" :class="event.tone"></span><time>{{ event.time }}</time><strong>{{ event.type }}</strong><p>{{ event.text }}</p></li></ol>
+      <div class="section-heading"><div><span class="section-kicker">事件</span><h2 id="timeline-heading">事件时间线</h2></div><a-button icon="down" @click="toggleExpanded">展开</a-button></div>
+      <ol class="timeline"><li v-for="event in timelineEvents" :key="`${event.time}-${event.type}`"><span class="timeline-dot" :class="event.tone"></span><time>{{ event.time }}</time><strong>{{ eventTypeLabel(event.type) }}</strong><p>{{ event.text }}</p></li></ol>
     </section>
   </main>
 </template>
@@ -118,18 +118,18 @@ export default {
       dashboard: quantDashboardMock,
       expanded: false,
       signalFilterOn: false,
-      interactionNote: 'Static MOCK data • no live connection'
+      interactionNote: '静态模拟数据 · 未连接实盘'
     }
   },
   computed: {
     statusItems () {
       const status = this.dashboard.status
       return [
-        { label: 'Environment', value: status.environment, icon: 'experiment', tone: 'shadow' },
-        { label: 'Live Trading', value: status.liveTrading, icon: 'poweroff', tone: 'risk' },
-        { label: 'Reconciliation', value: status.reconciliationHealth, icon: 'safety-certificate', tone: 'healthy' },
-        { label: 'Market Data', value: status.marketDataHealth, icon: 'database', tone: 'healthy' },
-        { label: 'Account Facts', value: status.accountFactsVerified, icon: 'check-circle', tone: 'healthy' }
+        { label: '环境', value: '模拟盘', icon: 'experiment', tone: 'shadow' },
+        { label: '实盘交易', value: '关闭', icon: 'poweroff', tone: 'risk' },
+        { label: '对账', value: '健康', icon: 'safety-certificate', tone: 'healthy' },
+        { label: '行情数据', value: '当前', icon: 'database', tone: 'healthy' },
+        { label: '账户事实', value: '已验证', icon: 'check-circle', tone: 'healthy' }
       ]
     },
     visibleSignals () {
@@ -143,27 +143,48 @@ export default {
   },
   methods: {
     refreshMock () {
-      this.interactionNote = 'Mock dataset refreshed • static PAPER/SHADOW preview'
+      this.interactionNote = '已刷新模拟数据 · 模拟盘 / 影子模式静态预览'
     },
     toggleExpanded () {
       this.expanded = !this.expanded
-      this.interactionNote = this.expanded ? 'Expanded mock event context' : 'Collapsed mock event context'
+      this.interactionNote = this.expanded ? '已展开模拟事件详情' : '已收起模拟事件详情'
     },
     filterPositions () {
-      this.interactionNote = 'Position filter inspected • no data source queried'
+      this.interactionNote = '已查看持仓筛选 · 未查询任何数据源'
     },
     filterSignals () {
       this.signalFilterOn = !this.signalFilterOn
-      this.interactionNote = this.signalFilterOn ? 'Filtered replay-only mock rows' : 'Restored all mock signal rows'
+      this.interactionNote = this.signalFilterOn ? '已筛选模拟重放记录' : '已恢复全部模拟信号'
     },
     inspect (target) {
-      this.interactionNote = `Inspecting mock ${target}`
+      this.interactionNote = `正在查看模拟 ${target}`
     },
     view (target) {
-      this.interactionNote = `Viewing mock ${target}`
+      this.interactionNote = `正在查看模拟 ${target}`
     },
     simulateFlow () {
-      this.interactionNote = 'Simulated typed admission flow • no persistence or execution invoked'
+      this.interactionNote = '已模拟类型化准入流程 · 未调用持久化或执行路径'
+    },
+    modeLabel (mode) {
+      return ({ PAPER: '模拟盘', SHADOW: '影子模式', DISABLED: '已禁用' })[mode] || mode
+    },
+    actionLabel (action) {
+      return ({ OPEN: '开仓', INCREASE: '加仓', REDUCE: '减仓', CLOSE: '平仓', CANCEL: '撤单', EMERGENCY_CLOSE: '紧急平仓', PROTECTION: '保护单' })[action] || action
+    },
+    sourceLabel (source) {
+      return ({ STRATEGY: '策略', HUMAN: '人工', AGENT: 'Agent', MCP: 'MCP', GRID: '网格', PROTECTION: '保护' })[source] || source
+    },
+    riskEffectLabel (effect) {
+      return ({ INCREASE_RISK: '增加风险', REDUCE_RISK: '降低风险', NEUTRAL: '中性' })[effect] || effect
+    },
+    admissionLabel (status) {
+      return ({ CREATED: '已创建', REPLAYED: '已重放', RISK_REJECTED: '风控拒绝' })[status] || status
+    },
+    decisionLabel (decision) {
+      return ({ ALLOW: '允许', DENY: '拒绝', '-': '-' })[decision] || decision
+    },
+    eventTypeLabel (type) {
+      return ({ ENTRY_ADMITTED: '准入成功', CANCEL_ADMITTED: '撤单准入', RISK_ALLOWED: '风控允许', RISK_DENIED: '风控拒绝', RESERVATION_CREATED: '预留已创建', OUTBOX_CREATED: '事件已写入', RECOVERY_COMPLETED: '恢复完成', RECONCILIATION_HEALTHY: '对账健康' })[type] || type
     },
     admissionTone (status) {
       if (status === 'RISK_REJECTED') return 'risk'

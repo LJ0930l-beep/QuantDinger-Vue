@@ -5,7 +5,7 @@ import { quantDashboardMock } from '../../src/mocks/quantDashboard.js'
 test('quant dashboard mock is visibly non-live and complete enough for the read-only prototype', () => {
   assert.equal(quantDashboardMock.status.liveTrading, 'OFF')
   assert.ok(['PAPER', 'SHADOW'].includes(quantDashboardMock.status.environment))
-  assert.equal(quantDashboardMock.label.includes('MOCK'), true)
+  assert.equal(quantDashboardMock.label.includes('模拟数据'), true)
   assert.equal(quantDashboardMock.positions.length > 0, true)
   assert.equal(quantDashboardMock.strategies.length, 4)
   assert.equal(quantDashboardMock.pipeline.length, 6)

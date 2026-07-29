@@ -162,7 +162,7 @@ export const constantRouterMap = [
     name: 'QuantDashboardMock',
     component: () => import('@/views/quant-dashboard'),
     hidden: true,
-    meta: { title: 'Quant Dashboard (Mock)', keepAlive: false }
+    meta: { title: '量化仪表盘（模拟）', keepAlive: false }
   },
   {
     path: '/strategy-runtime',
