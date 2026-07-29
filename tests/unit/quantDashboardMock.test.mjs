@@ -9,6 +9,8 @@ test('quant dashboard mock is visibly non-live and complete enough for the read-
   assert.equal(quantDashboardMock.positions.length > 0, true)
   assert.equal(quantDashboardMock.strategies.length, 4)
   assert.equal(quantDashboardMock.pipeline.length, 6)
+  assert.equal(quantDashboardMock.equityChart.labels.length, quantDashboardMock.equityChart.equity.length)
+  assert.equal(quantDashboardMock.equityChart.equity.every(value => typeof value === 'string'), true)
   assert.equal(quantDashboardMock.timeline.some(event => event.type === 'ENTRY_ADMITTED'), true)
 })
 

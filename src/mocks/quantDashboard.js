@@ -18,6 +18,11 @@ export const quantDashboardMock = Object.freeze({
     Object.freeze({ label: '回撤', value: '2.18%', detail: '上限 8.00%', tone: 'warning' }),
     Object.freeze({ label: '活动预留', value: '2', detail: '已预留 4,200.00 USDT', tone: 'risk' })
   ]),
+  equityChart: Object.freeze({
+    labels: Object.freeze(['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00']),
+    equity: Object.freeze(['124,210.00', '124,480.00', '124,335.00', '124,690.00', '124,880.00', '125,150.00', '125,520.00', '125,840.26']),
+    dailyPnl: Object.freeze(['120.00', '390.00', '245.00', '600.00', '790.00', '1,060.00', '1,180.00', '1,284.36'])
+  }),
   positions: Object.freeze([
     Object.freeze({ symbol: 'BTC/USDT', side: 'LONG', quantity: '0.18400000 BTC', entry: '67,420.50', mark: '68,112.40', pnl: '+127.31 USDT', leverage: '2.0x', risk: '预算范围内', protection: '止损已启用' }),
     Object.freeze({ symbol: 'ETH/USDT', side: 'LONG', quantity: '3.25000000 ETH', entry: '3,482.10', mark: '3,510.60', pnl: '+92.63 USDT', leverage: '1.5x', risk: '预算范围内', protection: '止盈 + 止损' }),
