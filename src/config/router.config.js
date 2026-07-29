@@ -155,6 +155,15 @@ export const asyncRouterMap = [
  * @type { *[] }
  */
 export const constantRouterMap = [
+  // Public, read-only prototype route. It is deliberately independent from the
+  // authenticated trading workspace and has no API, exchange, or executor calls.
+  {
+    path: '/quant-dashboard',
+    name: 'QuantDashboardMock',
+    component: () => import('@/views/quant-dashboard'),
+    hidden: true,
+    meta: { title: 'Quant Dashboard (Mock)', keepAlive: false }
+  },
   {
     path: '/strategy-runtime',
     hidden: true,
