@@ -34,3 +34,12 @@ export function getReadonlyPaperShadowResult () {
     timeout: 8000
   })
 }
+
+/** Gate-first non-live research readiness; this endpoint is read-only. */
+export function getResearchReadiness () {
+  return request({
+    url: '/api/quant/readiness',
+    method: 'get',
+    timeout: 8000
+  })
+}

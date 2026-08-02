@@ -139,7 +139,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -151,6 +151,7 @@ export default {
       readonlyState: null,
       readonlyBacktest: null,
       readonlyPaperShadow: null,
+      researchReadiness: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -162,6 +163,7 @@ export default {
       return {
         backtest: this.readonlyBacktest && this.readonlyBacktest.status ? this.readonlyBacktest.status : 'UNAVAILABLE',
         paperShadow: this.readonlyPaperShadow && this.readonlyPaperShadow.status ? this.readonlyPaperShadow.status : 'UNAVAILABLE'
+        ,readiness: this.researchReadiness && this.researchReadiness.status ? this.researchReadiness.status : 'UNAVAILABLE'
       }
     },
     statusItems () {
@@ -234,6 +236,12 @@ export default {
         this.readonlyPaperShadow = unwrap(response)
       } catch (e) {
         this.readonlyPaperShadow = { status: 'UNAVAILABLE' }
+      }
+      try {
+        const response = await getResearchReadiness()
+        this.researchReadiness = unwrap(response)
+      } catch (e) {
+        this.researchReadiness = { status: 'UNAVAILABLE' }
       }
     },
     initEquityChart () {
