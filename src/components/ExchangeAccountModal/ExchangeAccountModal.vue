@@ -50,7 +50,7 @@
         <a-form-item :label="$t('profile.exchange.environment')">
           <a-select
             :key="`environment-${selectedExchangeId}`"
-            v-decorator="['environment', { initialValue: 'live' }]"
+            v-decorator="['environment', { initialValue: cryptoDefaultEnvironment }]"
             @change="handleEnvironmentChange"
           >
             <a-select-option v-for="option in cryptoEnvironmentOptions" :key="option.value" :value="option.value">
@@ -286,6 +286,12 @@ export default {
     selectedCryptoExchangeName () {
       return this.selectedCryptoExchangeMeta ? this.selectedCryptoExchangeMeta.name : this.getExchangeDisplayName(this.selectedExchangeId)
     },
+    cryptoDefaultEnvironment () {
+      // Gate has a separate TestNet host and keys are environment-specific.
+      // Defaulting this form to TestNet prevents an accidental live credential
+      // selection while keeping an explicit Live option available.
+      return this.selectedExchangeId === 'gate' ? 'testnet' : 'live'
+    },
     selectedExchangeApiDocUrl () {
       if (this.selectedExchangeId === 'binance' && this.selectedEnvironment === 'demo') {
         return 'https://developers.binance.com/docs/binance-spot-api-docs/demo-mode/general-info'
@@ -473,7 +479,8 @@ export default {
     handleExchangeTypeChange (val) {
       const exchangeId = normalizeCryptoExchangeId(val)
       this.selectedExchangeId = exchangeId
-      this.selectedEnvironment = 'live'
+      const defaultEnvironment = exchangeId === 'gate' ? 'testnet' : 'live'
+      this.selectedEnvironment = defaultEnvironment
       this.exchangeTestResult = null
       const cryptoIds = this.cryptoExchangeList.map(e => e.id)
       if (cryptoIds.includes(exchangeId)) {
@@ -487,7 +494,7 @@ export default {
       }
       if (this.addExchangeType === 'crypto') {
         this.$nextTick(() => {
-          this.exchangeForm.setFieldsValue({ environment: 'live', market_scope: 'both' })
+          this.exchangeForm.setFieldsValue({ environment: defaultEnvironment, market_scope: 'both' })
         })
       }
     },
