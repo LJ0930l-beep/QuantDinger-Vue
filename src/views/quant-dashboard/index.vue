@@ -24,6 +24,7 @@
         <span class="research-status" aria-live="polite">Paper Account: {{ readonlyPaperAccount && readonlyPaperAccount.status ? readonlyPaperAccount.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Paper Recovery: {{ paperRecovery && paperRecovery.status ? paperRecovery.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Product Rehearsal: {{ productRehearsal && productRehearsal.live_enabled === false ? 'READY · OFFLINE' : 'UNAVAILABLE' }}</span>
+        <span class="research-status" aria-live="polite">TestNet Execution: {{ gateTestnetExecution && gateTestnetExecution.live_enabled === false ? gateTestnetExecution.order.status : 'UNAVAILABLE' }}</span>
         <a-button icon="sync" @click="refreshMock">刷新模拟数据</a-button>
         <a-button icon="eye" @click="toggleExpanded">{{ expanded ? '收起事件' : '展开事件' }}</a-button>
       </div>
@@ -131,6 +132,13 @@
         <span>Outbox {{ productRehearsal.admission.outbox_event_id ? '已生成' : '无' }}</span>
         <span class="purple">Typed Parser {{ productRehearsal.admission.typed_event_parser }}</span>
       </div>
+      <div v-if="gateTestnetExecution" class="admission-evidence execution-evidence" data-testid="testnet-execution-rehearsal">
+        <span class="admission-label">Gate TestNet 生命周期仿真</span>
+        <strong class="healthy">{{ gateTestnetExecution.order.status }}</strong>
+        <span>成交 {{ gateTestnetExecution.order.filled_quantity }} / {{ gateTestnetExecution.order.quantity }}</span>
+        <span>手续费 {{ gateTestnetExecution.fee_amount }} {{ gateTestnetExecution.fee_asset }}</span>
+        <span class="purple">仅 Fixture · 未联网 · 未写入</span>
+      </div>
     </section>
 
     <section class="dashboard-grid health-grid">
@@ -157,7 +165,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateMarket, getReadonlyProductRehearsal } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -185,6 +193,7 @@ export default {
       readonlyGateAccount: null,
       readonlyGateMarket: null,
       productRehearsal: null,
+      gateTestnetExecution: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -356,6 +365,7 @@ export default {
       await this.loadReadonlyGateMarket()
       await this.loadReadonlyPaperRecovery()
       await this.loadReadonlyProductRehearsal()
+      await this.loadReadonlyGateTestnetExecution()
       try {
         const response = await getReadonlyResearchRun()
         this.researchRun = unwrap(response)
@@ -484,6 +494,21 @@ export default {
         if (body && body.live_enabled === false && body.execution_boundary === 'READ_ONLY_FIXTURE') this.productRehearsal = body
       } catch (e) {
         this.productRehearsal = null
+      }
+    },
+    async loadReadonlyGateTestnetExecution () {
+      const query = (this.$route && this.$route.query) || {}
+      if (!query.testnet_execution) return
+      try {
+        const response = await getReadonlyGateTestnetExecutionRehearsal({
+          instrument_id: query.instrument_id || 'BTC_USDT',
+          market_type: query.market_type || 'perpetual',
+          fill_ratio: query.fill_ratio || '1'
+        })
+        const body = response && response.data ? response.data : response
+        if (body && body.live_enabled === false && body.network_access === false) this.gateTestnetExecution = body
+      } catch (e) {
+        this.gateTestnetExecution = null
       }
     },
     initEquityChart () {

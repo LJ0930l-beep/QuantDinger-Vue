@@ -102,6 +102,20 @@ export function getReadonlyProductRehearsal () {
   })
 }
 
+/** Deterministic local Gate TestNet order/fill lifecycle; never sends a request to Gate. */
+export function getReadonlyGateTestnetExecutionRehearsal (options = {}) {
+  return request({
+    url: '/api/quant/testnet/execution/rehearsal/readonly',
+    method: 'get',
+    params: {
+      instrument_id: options.instrument_id || 'BTC_USDT',
+      market_type: options.market_type || 'perpetual',
+      fill_ratio: options.fill_ratio || '1'
+    },
+    timeout: 8000
+  })
+}
+
 /**
  * Read-only deterministic backtest result.  A missing provider is expected
  * to return 503; the dashboard must retain its explicit mock fallback and
