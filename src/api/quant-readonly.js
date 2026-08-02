@@ -158,6 +158,16 @@ export function getReadonlyPaperAccount (limit = 200) {
   })
 }
 
+/** Replay the restart-safe durable PAPER execution tables without writes. */
+export function getReadonlyDurablePaperAccount (limit = 200) {
+  return request({
+    url: '/api/quant/paper/v2/account/readonly',
+    method: 'get',
+    params: { limit },
+    timeout: 8000
+  })
+}
+
 /** Replay persisted Paper facts against an explicit snapshot checkpoint. */
 export function getReadonlyPaperRecovery (options = {}) {
   return request({

@@ -22,6 +22,7 @@
         <span class="research-status" aria-live="polite">Deployment: {{ deploymentReadiness && deploymentReadiness.status ? deploymentReadiness.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Backtest: {{ researchStatus.backtest }} · Paper/Shadow: {{ researchStatus.paperShadow }}</span>
         <span class="research-status" aria-live="polite">Paper Account: {{ readonlyPaperAccount && readonlyPaperAccount.status ? readonlyPaperAccount.status : 'UNAVAILABLE' }}</span>
+        <span class="research-status" aria-live="polite">Durable Paper: {{ durablePaperAccount && durablePaperAccount.status ? durablePaperAccount.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Paper Recovery: {{ paperRecovery && paperRecovery.status ? paperRecovery.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Product Rehearsal: {{ productRehearsal && productRehearsal.live_enabled === false ? 'READY · OFFLINE' : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">TestNet Execution: {{ gateTestnetExecution && gateTestnetExecution.live_enabled === false ? gateTestnetExecution.order.status : 'UNAVAILABLE' }}</span>
@@ -172,7 +173,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -185,6 +186,7 @@ export default {
       readonlyBacktest: null,
       readonlyPaperShadow: null,
       readonlyPaperAccount: null,
+      durablePaperAccount: null,
       paperRecovery: null,
       researchReadiness: null,
       strategyCatalog: null,
@@ -347,6 +349,14 @@ export default {
         this.readonlyPaperAccount = unwrap(response)
       } catch (e) {
         this.readonlyPaperAccount = { status: 'UNAVAILABLE', live_enabled: false }
+      }
+      if (this.$route && this.$route.query && this.$route.query.paper_v2) {
+        try {
+          const response = await getReadonlyDurablePaperAccount(this.$route.query.paper_limit || 200)
+          this.durablePaperAccount = unwrap(response)
+        } catch (e) {
+          this.durablePaperAccount = { status: 'UNAVAILABLE', live_enabled: false }
+        }
       }
       try {
         const response = await getResearchReadiness()
