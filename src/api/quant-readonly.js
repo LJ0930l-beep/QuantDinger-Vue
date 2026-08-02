@@ -88,3 +88,12 @@ export function getReadonlyQuantOperations () {
     timeout: 8000
   })
 }
+
+/** Read-only deterministic manifest for the latest non-live rehearsal. */
+export function getReadonlyNonLiveRunManifest () {
+  return request({
+    url: '/api/quant/research-run/manifest/readonly',
+    method: 'get',
+    timeout: 8000
+  })
+}
