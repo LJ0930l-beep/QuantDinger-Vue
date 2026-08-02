@@ -134,6 +134,20 @@ export function getGateTestnetOrder (scope = {}) {
   })
 }
 
+/**
+ * Explicitly read and settle Gate TestNet fills for an existing order.  The
+ * payload contains only credential_id and caller-owned immutable scope facts;
+ * API keys/secrets never cross the browser boundary.
+ */
+export function settleGateTestnetOrderFills (payload = {}) {
+  return request({
+    url: '/api/quant/gate/testnet/order/settle-fills',
+    method: 'post',
+    data: payload,
+    timeout: 20000
+  })
+}
+
 /** Explicit public Gate TestNet market evidence; unavailable unless enabled by the API operator. */
 export function getReadonlyGateMarket (scope = {}) {
   return request({
