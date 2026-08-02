@@ -144,6 +144,19 @@ export function getReadonlyPaperAccount (limit = 200) {
   })
 }
 
+/** Replay persisted Paper facts against an explicit snapshot checkpoint. */
+export function getReadonlyPaperRecovery (options = {}) {
+  return request({
+    url: '/api/quant/paper/recovery/readonly',
+    method: 'get',
+    params: {
+      limit: options.limit || 200,
+      expected_snapshot_fingerprint: options.expected_snapshot_fingerprint
+    },
+    timeout: 8000
+  })
+}
+
 /** Gate-first non-live research readiness; this endpoint is read-only. */
 export function getResearchReadiness () {
   return request({

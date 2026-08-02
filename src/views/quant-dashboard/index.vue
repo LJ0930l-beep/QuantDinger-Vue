@@ -22,6 +22,7 @@
         <span class="research-status" aria-live="polite">Deployment: {{ deploymentReadiness && deploymentReadiness.status ? deploymentReadiness.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Backtest: {{ researchStatus.backtest }} · Paper/Shadow: {{ researchStatus.paperShadow }}</span>
         <span class="research-status" aria-live="polite">Paper Account: {{ readonlyPaperAccount && readonlyPaperAccount.status ? readonlyPaperAccount.status : 'UNAVAILABLE' }}</span>
+        <span class="research-status" aria-live="polite">Paper Recovery: {{ paperRecovery && paperRecovery.status ? paperRecovery.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Product Rehearsal: {{ productRehearsal && productRehearsal.live_enabled === false ? 'READY · OFFLINE' : 'UNAVAILABLE' }}</span>
         <a-button icon="sync" @click="refreshMock">刷新模拟数据</a-button>
         <a-button icon="eye" @click="toggleExpanded">{{ expanded ? '收起事件' : '展开事件' }}</a-button>
@@ -156,7 +157,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateMarket, getReadonlyProductRehearsal } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateMarket, getReadonlyProductRehearsal } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -169,6 +170,7 @@ export default {
       readonlyBacktest: null,
       readonlyPaperShadow: null,
       readonlyPaperAccount: null,
+      paperRecovery: null,
       researchReadiness: null,
       strategyCatalog: null,
       researchRun: null,
@@ -352,6 +354,7 @@ export default {
       await this.loadReadonlyShadow()
       await this.loadReadonlyGateAccount()
       await this.loadReadonlyGateMarket()
+      await this.loadReadonlyPaperRecovery()
       await this.loadReadonlyProductRehearsal()
       try {
         const response = await getReadonlyResearchRun()
@@ -456,6 +459,20 @@ export default {
         if (body && body.bundle_fingerprint && body.live_enabled === false) this.readonlyGateMarket = body
       } catch (e) {
         this.readonlyGateMarket = null
+      }
+    },
+    async loadReadonlyPaperRecovery () {
+      const query = (this.$route && this.$route.query) || {}
+      if (!query.paper_recovery) return
+      try {
+        const response = await getReadonlyPaperRecovery({
+          expected_snapshot_fingerprint: query.paper_snapshot_fingerprint,
+          limit: query.paper_limit || 200
+        })
+        const body = response && response.data ? response.data : response
+        if (body && body.live_enabled === false) this.paperRecovery = body
+      } catch (e) {
+        this.paperRecovery = null
       }
     },
     async loadReadonlyProductRehearsal () {
