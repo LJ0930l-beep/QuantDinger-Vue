@@ -51,6 +51,15 @@
             </div>
           </div>
           <div class="crypto-item-footer">
+            <a-button
+              v-if="isGateTestnet(item)"
+              size="small"
+              class="crypto-view-account-btn"
+              :loading="testingCredentialId === item.id"
+              @click="testSavedCredential(item)"
+            >
+              <a-icon type="api" /> 测试 Gate TestNet
+            </a-button>
             <a-button size="small" class="crypto-view-account-btn" @click="openSnapshotModal(item)">
               <a-icon type="fund" /> {{ $t('trading-assistant.positions.viewAccountPositions') }}
             </a-button>
@@ -175,7 +184,7 @@
 </template>
 
 <script>
-import { listExchangeCredentials, deleteExchangeCredential } from '@/api/credentials'
+import { listExchangeCredentials, deleteExchangeCredential, testSavedExchangeCredential } from '@/api/credentials'
 import { getAccountSnapshot } from '@/api/strategy'
 import ExchangeAccountModal from '@/components/ExchangeAccountModal/ExchangeAccountModal.vue'
 import RenameCredentialModal from '@/components/RenameCredentialModal/RenameCredentialModal.vue'
@@ -211,6 +220,7 @@ export default {
     return {
       items: [],
       loading: false,
+      testingCredentialId: null,
       addModalVisible: false,
       renameModalVisible: false,
       renameTarget: null,
@@ -305,6 +315,26 @@ export default {
     exchangeInitial (id) {
       const name = this.exchangeDisplayName(id)
       return name.charAt(0).toUpperCase()
+    },
+    isGateTestnet (item) {
+      return String(item && item.exchange_id || '').toLowerCase() === 'gate' &&
+        String(item && item.environment || '').toLowerCase() === 'testnet'
+    },
+    async testSavedCredential (item) {
+      if (!item || !item.id) return
+      this.testingCredentialId = item.id
+      try {
+        const response = await testSavedExchangeCredential(item.id)
+        if (response && response.code === 1) {
+          this.$message.success('Gate TestNet 连接成功')
+        } else {
+          this.$message.error((response && response.msg) || 'Gate TestNet 连接失败')
+        }
+      } catch (_) {
+        this.$message.error('Gate TestNet 连接失败')
+      } finally {
+        this.testingCredentialId = null
+      }
     },
     iconBg (id) {
       return ICON_COLORS[id] || 'var(--primary-color, #1890ff)'

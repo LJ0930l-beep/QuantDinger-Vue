@@ -4,6 +4,7 @@ const api = {
   list: '/api/credentials/list',
   create: '/api/credentials/create',
   test: '/api/credentials/test',
+  testSaved: '/api/credentials/test-saved',
   delete: '/api/credentials/delete',
   updateName: '/api/credentials/update-name',
   egressIp: '/api/credentials/egress-ip',
@@ -31,6 +32,16 @@ export function testExchangeCredential (data) {
     url: api.test,
     method: 'post',
     data
+  })
+}
+
+/** Probe a stored Gate TestNet credential without sending raw keys. */
+export function testSavedExchangeCredential (credentialId) {
+  return request({
+    url: api.testSaved,
+    method: 'post',
+    data: { credential_id: credentialId },
+    timeout: 20000
   })
 }
 
