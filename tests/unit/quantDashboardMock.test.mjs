@@ -43,6 +43,8 @@ test('frontend renders readonly Gate balance and position pnl evidence when avai
 test('frontend connects to the backend TestNet readonly account without credential inputs', () => {
   const view = readFileSync(new URL('../../src/views/quant-dashboard/index.vue', import.meta.url), 'utf8')
   assert.match(view, /connectGateTestnetAccount/)
+  assert.match(view, /listExchangeCredentials/)
+  assert.match(view, /getReadonlyGateAccount/)
   assert.match(view, /getGateTestnetEnvironmentAccount/)
   assert.match(view, /gateAccountForm\.account_scope/)
   assert.match(view, /凭证仅在后端环境中读取/)
