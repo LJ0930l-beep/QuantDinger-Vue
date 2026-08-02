@@ -74,6 +74,16 @@ export function getReadonlyBacktestResult () {
   })
 }
 
+/** Read one user-scoped, fingerprint-verified persisted report by run id. */
+export function getReadonlyPersistedBacktestReport (runId) {
+  return request({
+    url: '/api/quant/backtest/report/readonly',
+    method: 'get',
+    params: { run_id: runId },
+    timeout: 8000
+  })
+}
+
 /** Read-only Paper/Shadow run summary; never a write or execution call. */
 export function getReadonlyPaperShadowResult () {
   return request({
