@@ -132,6 +132,13 @@
         <span>Outbox {{ productRehearsal.admission.outbox_event_id ? '已生成' : '无' }}</span>
         <span class="purple">Typed Parser {{ productRehearsal.admission.typed_event_parser }}</span>
       </div>
+      <div v-if="productRehearsal && productRehearsal.testnet_execution" class="admission-evidence execution-evidence" data-testid="product-testnet-execution">
+        <span class="admission-label">端到端 TestNet 执行证据</span>
+        <strong class="healthy">{{ productRehearsal.testnet_execution.order.status }}</strong>
+        <span>成交 {{ productRehearsal.testnet_execution.order.filled_quantity }} / {{ productRehearsal.testnet_execution.order.quantity }}</span>
+        <span>手续费 {{ productRehearsal.testnet_execution.fee_amount }} {{ productRehearsal.testnet_execution.fee_asset }}</span>
+        <span class="purple">Fixture · 无网络写入</span>
+      </div>
       <div v-if="gateTestnetExecution" class="admission-evidence execution-evidence" data-testid="testnet-execution-rehearsal">
         <span class="admission-label">Gate TestNet 生命周期仿真</span>
         <strong class="healthy">{{ gateTestnetExecution.order.status }}</strong>
