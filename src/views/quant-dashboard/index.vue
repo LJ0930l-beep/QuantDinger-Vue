@@ -389,7 +389,7 @@ export default {
         quantity: position.quantity,
         entry: position.average_entry_price,
         mark: position.mark_price,
-        pnl: '只读证据',
+        pnl: position.unrealized_pnl || '0',
         leverage: `${position.leverage}x`,
         risk: '已核验',
         protection: '只读'
