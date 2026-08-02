@@ -61,3 +61,12 @@ export function getReadonlyResearchRun () {
     timeout: 8000
   })
 }
+
+/** Read-only release gate evidence; never changes deployment state. */
+export function getReadonlyReleaseReadiness () {
+  return request({
+    url: '/api/quant/release-readiness/readonly',
+    method: 'get',
+    timeout: 8000
+  })
+}
