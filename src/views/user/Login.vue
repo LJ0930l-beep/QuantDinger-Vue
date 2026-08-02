@@ -952,7 +952,13 @@ export default {
           .catch(err => {
             const response = err.response || {}
             const data = response.data || {}
-            this.loginError = data.msg || err.message || 'Login failed'
+            if (!response || !response.status) {
+              this.loginError = '无法连接后端服务，请确认后端 API 已启动后重试'
+            } else if (response.status >= 500) {
+              this.loginError = `后端服务暂不可用（HTTP ${response.status}），请确认后端 API 已启动`
+            } else {
+              this.loginError = data.msg || err.message || 'Login failed'
+            }
             if (this.isTurnstileErrorMessage(this.loginError)) {
               this.resetSharedTurnstile()
             }
