@@ -236,7 +236,7 @@ export default {
       if ((!persisted || persisted.status !== 'READY' || !Array.isArray(persisted.positions)) && paper && paper.status === 'READY' && Array.isArray(paper.positions)) {
         return paper.positions.map(position => ({
           symbol: position.symbol,
-          side: Number(position.signed_quantity) >= 0 ? 'LONG' : 'SHORT',
+          side: String(position.signed_quantity || '').trim().startsWith('-') ? 'SHORT' : 'LONG',
           quantity: position.signed_quantity,
           entry: position.average_entry_price || 'N/A',
           mark: 'N/A',
