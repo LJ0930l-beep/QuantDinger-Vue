@@ -360,7 +360,17 @@ export default {
     },
     headlineMetrics () {
       const names = ['账户总权益', '当日盈亏', '可用保证金', '回撤']
-      return names.map(name => this.dashboard.account.find(metric => metric.label === name)).filter(Boolean)
+      const fallback = names.map(name => this.dashboard.account.find(metric => metric.label === name)).filter(Boolean)
+      const persisted = this.gateTestnetEnvironmentAccount || this.readonlyGateAccount
+      if (!persisted || persisted.status !== 'READY' || !Array.isArray(persisted.balances)) return fallback
+      const usdt = persisted.balances.find(item => String(item.asset || '').toUpperCase() === 'USDT') || persisted.balances[0]
+      const pnl = persisted.pnl || {}
+      return [
+        { label: '账户总权益', value: usdt && usdt.total ? usdt.total : '0', detail: 'Gate TestNet 只读证据' },
+        { label: '当日盈亏', value: pnl.realized || '0', detail: '已实现 PnL 只读证据' },
+        { label: '可用保证金', value: usdt && usdt.available ? usdt.available : '0', detail: 'Gate TestNet 可用余额' },
+        fallback[3]
+      ].filter(Boolean)
     },
     accountRiskSummary () {
       const names = ['总敞口', '净敞口', '活动预留']
