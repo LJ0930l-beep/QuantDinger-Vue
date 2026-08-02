@@ -31,3 +31,11 @@ test('frontend TestNet write surface is explicitly gated and never exposes LIVE'
   assert.doesNotMatch(view, /AGENT_LIVE_TRADING_ENABLED\s*=\s*['"]1['"]/)
   assert.match(view, /Live OFF/)
 })
+
+test('frontend renders readonly Gate balance and position pnl evidence when available', () => {
+  const view = readFileSync(new URL('../../src/views/quant-dashboard/index.vue', import.meta.url), 'utf8')
+  assert.match(view, /persisted\.balances/)
+  assert.match(view, /persisted\.pnl/)
+  assert.match(view, /position\.unrealized_pnl/)
+  assert.match(view, /Gate TestNet 只读证据/)
+})
