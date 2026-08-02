@@ -109,6 +109,16 @@ export function getReadonlyPaperShadowResult () {
   })
 }
 
+/** Read persisted PAPER order facts without exchange access or writes. */
+export function getReadonlyPaperAccount (limit = 200) {
+  return request({
+    url: '/api/quant/paper/account/readonly',
+    method: 'get',
+    params: { limit },
+    timeout: 8000
+  })
+}
+
 /** Gate-first non-live research readiness; this endpoint is read-only. */
 export function getResearchReadiness () {
   return request({

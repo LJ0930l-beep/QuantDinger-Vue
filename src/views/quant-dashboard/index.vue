@@ -21,6 +21,7 @@
         <span class="research-status" aria-live="polite">Run Manifest: {{ nonLiveRunManifest && nonLiveRunManifest.status ? nonLiveRunManifest.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Deployment: {{ deploymentReadiness && deploymentReadiness.status ? deploymentReadiness.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Backtest: {{ researchStatus.backtest }} · Paper/Shadow: {{ researchStatus.paperShadow }}</span>
+        <span class="research-status" aria-live="polite">Paper Account: {{ readonlyPaperAccount && readonlyPaperAccount.status ? readonlyPaperAccount.status : 'UNAVAILABLE' }}</span>
         <a-button icon="sync" @click="refreshMock">刷新模拟数据</a-button>
         <a-button icon="eye" @click="toggleExpanded">{{ expanded ? '收起事件' : '展开事件' }}</a-button>
       </div>
@@ -146,7 +147,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -158,6 +159,7 @@ export default {
       readonlyState: null,
       readonlyBacktest: null,
       readonlyPaperShadow: null,
+      readonlyPaperAccount: null,
       researchReadiness: null,
       strategyCatalog: null,
       researchRun: null,
@@ -296,6 +298,12 @@ export default {
         this.readonlyPaperShadow = unwrap(response)
       } catch (e) {
         this.readonlyPaperShadow = { status: 'UNAVAILABLE' }
+      }
+      try {
+        const response = await getReadonlyPaperAccount()
+        this.readonlyPaperAccount = unwrap(response)
+      } catch (e) {
+        this.readonlyPaperAccount = { status: 'UNAVAILABLE', live_enabled: false }
       }
       try {
         const response = await getResearchReadiness()
