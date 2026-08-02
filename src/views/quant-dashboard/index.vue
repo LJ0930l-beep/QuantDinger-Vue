@@ -194,7 +194,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getGateTestnetEnvironmentAccount, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -221,6 +221,7 @@ export default {
       nonLiveRunManifest: null,
       deploymentReadiness: null,
       readonlyGateAccount: null,
+      gateTestnetEnvironmentAccount: null,
       readonlyGateMarket: null,
       productRehearsal: null,
       gateTestnetExecution: null,
@@ -283,7 +284,7 @@ export default {
       return names.map(name => this.dashboard.account.find(metric => metric.label === name)).filter(Boolean)
     },
     positionsDisplay () {
-      const persisted = this.readonlyGateAccount
+      const persisted = this.gateTestnetEnvironmentAccount || this.readonlyGateAccount
       const paper = this.readonlyPaperAccount
       if ((!persisted || persisted.status !== 'READY' || !Array.isArray(persisted.positions)) && paper && paper.status === 'READY' && Array.isArray(paper.positions)) {
         return paper.positions.map(position => ({
@@ -400,6 +401,7 @@ export default {
       await this.loadReadonlyReconciliation()
       await this.loadReadonlyShadow()
       await this.loadReadonlyGateAccount()
+      await this.loadGateTestnetEnvironmentAccount()
       await this.loadReadonlyGateMarket()
       await this.loadReadonlyPaperRecovery()
       await this.loadReadonlyProductRehearsal()
@@ -492,6 +494,24 @@ export default {
         if (body && body.status === 'READY' && body.live_enabled === false) this.readonlyGateAccount = body
       } catch (e) {
         this.readonlyGateAccount = null
+      }
+    },
+    async loadGateTestnetEnvironmentAccount () {
+      const query = (this.$route && this.$route.query) || {}
+      if (!query.gate_testnet_account || !query.account_scope) return
+      try {
+        const response = await getGateTestnetEnvironmentAccount({
+          market_type: query.market_type || 'spot',
+          account_scope: query.account_scope,
+          instrument_id: query.instrument_id
+        })
+        const body = response && response.data ? response.data : response
+        if (body && body.status === 'READY' && body.environment === 'TESTNET' && body.live_enabled === false) {
+          this.gateTestnetEnvironmentAccount = body
+          this.interactionNote = '已连接 Gate TestNet 真实账户只读数据；未启用下单'
+        }
+      } catch (e) {
+        this.gateTestnetEnvironmentAccount = null
       }
     },
     async loadReadonlyGateMarket () {

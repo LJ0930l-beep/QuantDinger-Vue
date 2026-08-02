@@ -77,6 +77,23 @@ export function getReadonlyGateAccount (scope = {}) {
   })
 }
 
+/**
+ * Explicit real Gate TestNet account read. The backend requires
+ * QUANT_GATE_TESTNET_ENV_READ_ENABLED=1 and never exposes write capability.
+ */
+export function getGateTestnetEnvironmentAccount (scope = {}) {
+  return request({
+    url: '/api/quant/gate/testnet/account',
+    method: 'get',
+    params: {
+      market_type: scope.market_type || 'spot',
+      account_scope: scope.account_scope,
+      instrument_id: scope.instrument_id
+    },
+    timeout: 12000
+  })
+}
+
 /** Explicit public Gate TestNet market evidence; unavailable unless enabled by the API operator. */
 export function getReadonlyGateMarket (scope = {}) {
   return request({
