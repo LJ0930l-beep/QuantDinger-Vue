@@ -17,6 +17,7 @@
         <span class="research-status" aria-live="polite">Release Gate: {{ releaseReadiness && releaseReadiness.status ? releaseReadiness.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">TestNet Rehearsal: {{ testnetRehearsal && testnetRehearsal.status ? testnetRehearsal.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Operations: {{ quantOperations && quantOperations.status ? quantOperations.status : 'UNAVAILABLE' }}</span>
+        <span class="research-status" aria-live="polite">Projection: {{ projectionGeneration && projectionGeneration.state ? projectionGeneration.state : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Run Manifest: {{ nonLiveRunManifest && nonLiveRunManifest.status ? nonLiveRunManifest.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Deployment: {{ deploymentReadiness && deploymentReadiness.status ? deploymentReadiness.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Backtest: {{ researchStatus.backtest }} · Paper/Shadow: {{ researchStatus.paperShadow }}</span>
@@ -145,7 +146,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -163,6 +164,7 @@ export default {
       releaseReadiness: null,
       testnetRehearsal: null,
       quantOperations: null,
+      projectionGeneration: null,
       nonLiveRunManifest: null,
       deploymentReadiness: null,
       expanded: false,
@@ -261,6 +263,12 @@ export default {
         this.strategyCatalog = unwrap(response)
       } catch (e) {
         this.strategyCatalog = { status: 'UNAVAILABLE', strategies: [] }
+      }
+      try {
+        const response = await getReadonlyProjectionGeneration()
+        this.projectionGeneration = unwrap(response)
+      } catch (e) {
+        this.projectionGeneration = { status: 'UNAVAILABLE', live_enabled: false }
       }
       try {
         const response = await getReadonlyResearchRun()

@@ -13,6 +13,16 @@ export function getReadonlyQuantState () {
   })
 }
 
+/** Persisted projection generation facts; this is narrower than the G4-B view. */
+export function getReadonlyProjectionGeneration (consumer = 'candidate') {
+  return request({
+    url: '/api/quant/projection/generation/readonly',
+    method: 'get',
+    params: { consumer },
+    timeout: 8000
+  })
+}
+
 /**
  * Read-only deterministic backtest result.  A missing provider is expected
  * to return 503; the dashboard must retain its explicit mock fallback and
