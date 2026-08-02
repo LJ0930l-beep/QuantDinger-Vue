@@ -154,6 +154,12 @@
         <span>持久化 {{ productRehearsal.ledger_rehearsal.persistence }}</span>
         <span class="purple">只读构造 · 无账本写入</span>
       </div>
+      <div v-if="productRehearsal && productRehearsal.canary_gate" class="admission-evidence canary-evidence" data-testid="product-canary-gate">
+        <span class="admission-label">Canary / 回滚闸门</span>
+        <strong :class="productRehearsal.canary_gate.decision === 'PROMOTION_CANDIDATE' ? 'healthy' : 'warning'">{{ productRehearsal.canary_gate.decision }}</strong>
+        <span>{{ productRehearsal.canary_gate.reasons.length ? productRehearsal.canary_gate.reasons.join(' · ') : '证据完整' }}</span>
+        <span class="purple">Live OFF · 需额外样本后才能晋级</span>
+      </div>
     </section>
 
     <section class="dashboard-grid health-grid">
