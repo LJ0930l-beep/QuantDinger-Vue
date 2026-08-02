@@ -551,6 +551,23 @@ export default {
         // The mock remains the safe default when the provider is unavailable.
       }
     },
+    async refreshGateTestnetAccountSnapshot () {
+      if (!this.testnetForm.credential_id || !this.testnetForm.account_scope) return
+      try {
+        const response = await getReadonlyGateAccount({
+          credential_id: Number(this.testnetForm.credential_id),
+          market_type: this.testnetForm.market_type,
+          account_scope: this.testnetForm.account_scope,
+          instrument_id: this.testnetForm.instrument_id
+        })
+        const body = response && response.data ? response.data : response
+        if (body && body.status === 'READY' && body.live_enabled === false) {
+          this.gateTestnetEnvironmentAccount = body
+        }
+      } catch (error) {
+        // A failed read must not turn a successful TestNet receipt into a mock.
+      }
+    },
     async submitTestnetOrder () {
       if (!this.testnetWriteUnlocked) return
       this.testnetSubmitting = true
@@ -568,6 +585,7 @@ export default {
         if (!payload.target_position_id) delete payload.target_position_id
         const response = await submitGateTestnetOrder(payload)
         this.testnetReceipt = response && response.data ? response.data : response
+        if (this.testnetReceipt && this.testnetReceipt.status !== 'REJECTED') await this.refreshGateTestnetAccountSnapshot()
         this.interactionNote = 'TestNet 订单已返回类型化回执；Live 仍保持关闭'
       } catch (error) {
         const response = error && error.response && error.response.data
@@ -599,6 +617,7 @@ export default {
         }
         const response = await cancelGateTestnetOrder(payload)
         this.testnetReceipt = response && response.data ? response.data : response
+        if (this.testnetReceipt && this.testnetReceipt.status !== 'REJECTED') await this.refreshGateTestnetAccountSnapshot()
         this.interactionNote = 'TestNet 撤单已返回类型化回执；未触碰 Live'
       } catch (error) {
         const response = error && error.response && error.response.data
