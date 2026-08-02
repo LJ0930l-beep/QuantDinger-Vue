@@ -147,7 +147,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateMarket } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -172,6 +172,7 @@ export default {
       nonLiveRunManifest: null,
       deploymentReadiness: null,
       readonlyGateAccount: null,
+      readonlyGateMarket: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -218,7 +219,7 @@ export default {
         { label: '运行模式', value: status.environment, icon: 'experiment', tone: 'shadow' },
         { label: '实盘交易', value: status.liveTrading, icon: 'poweroff', tone: 'risk' },
         { label: '对账状态', value: derivedHealth === 'HEALTHY' ? '健康' : (derivedHealth || '健康'), icon: 'safety-certificate', tone: derivedHealth === 'HEALTHY' ? 'healthy' : 'warning' },
-        { label: '市场数据', value: '正常', icon: 'database', tone: 'healthy' },
+        { label: 'Gate 行情', value: this.readonlyGateMarket && this.readonlyGateMarket.candles && this.readonlyGateMarket.candles.length ? `收盘 ${this.readonlyGateMarket.candles[this.readonlyGateMarket.candles.length - 1].close}` : '未启用', icon: 'database', tone: this.readonlyGateMarket ? 'healthy' : 'warning' },
         { label: '账户数据', value: '已核验', icon: 'check-circle', tone: 'healthy' }
       ]
     },
@@ -340,6 +341,7 @@ export default {
       await this.loadReadonlyReconciliation()
       await this.loadReadonlyShadow()
       await this.loadReadonlyGateAccount()
+      await this.loadReadonlyGateMarket()
       try {
         const response = await getReadonlyResearchRun()
         this.researchRun = unwrap(response)
@@ -428,6 +430,21 @@ export default {
         if (body && body.status === 'READY' && body.live_enabled === false) this.readonlyGateAccount = body
       } catch (e) {
         this.readonlyGateAccount = null
+      }
+    },
+    async loadReadonlyGateMarket () {
+      const query = (this.$route && this.$route.query) || {}
+      if (!query.gate_market || !query.instrument_id) return
+      try {
+        const response = await getReadonlyGateMarket({
+          instrument_id: query.instrument_id,
+          market_type: query.market_type || 'spot',
+          interval: query.interval || '1m'
+        })
+        const body = response && response.data ? response.data : response
+        if (body && body.bundle_fingerprint && body.live_enabled === false) this.readonlyGateMarket = body
+      } catch (e) {
+        this.readonlyGateMarket = null
       }
     },
     initEquityChart () {

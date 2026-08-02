@@ -77,6 +77,22 @@ export function getReadonlyGateAccount (scope = {}) {
   })
 }
 
+/** Explicit public Gate TestNet market evidence; unavailable unless enabled by the API operator. */
+export function getReadonlyGateMarket (scope = {}) {
+  return request({
+    url: '/api/quant/gate/market/readonly',
+    method: 'get',
+    params: {
+      instrument_id: scope.instrument_id,
+      market_type: scope.market_type || 'spot',
+      interval: scope.interval || '1m',
+      candle_limit: scope.candle_limit || 100,
+      depth_limit: scope.depth_limit || 20
+    },
+    timeout: 12000
+  })
+}
+
 /**
  * Read-only deterministic backtest result.  A missing provider is expected
  * to return 503; the dashboard must retain its explicit mock fallback and
