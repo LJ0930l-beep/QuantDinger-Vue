@@ -52,3 +52,12 @@ export function getReadonlyStrategyCatalog () {
     timeout: 8000
   })
 }
+
+/** Read-only end-to-end Gate research result; no trade side effects. */
+export function getReadonlyResearchRun () {
+  return request({
+    url: '/api/quant/research/readonly',
+    method: 'get',
+    timeout: 8000
+  })
+}

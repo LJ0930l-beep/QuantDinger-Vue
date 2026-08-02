@@ -140,7 +140,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -154,6 +154,7 @@ export default {
       readonlyPaperShadow: null,
       researchReadiness: null,
       strategyCatalog: null,
+      researchRun: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -250,6 +251,12 @@ export default {
         this.strategyCatalog = unwrap(response)
       } catch (e) {
         this.strategyCatalog = { status: 'UNAVAILABLE', strategies: [] }
+      }
+      try {
+        const response = await getReadonlyResearchRun()
+        this.researchRun = unwrap(response)
+      } catch (e) {
+        this.researchRun = { status: 'UNAVAILABLE' }
       }
     },
     initEquityChart () {
