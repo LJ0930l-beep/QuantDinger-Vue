@@ -9,6 +9,28 @@ export const quantDashboardMock = Object.freeze({
     lastUpdated: '2026-07-29 16:30:00 UTC+08',
     source: '仅静态原型数据'
   }),
+  environmentGate: Object.freeze({
+    current: 'PAPER',
+    liveTrading: 'OFF',
+    testnet: Object.freeze({
+      status: 'READY_READ_ONLY',
+      label: 'Gate TestNet',
+      writes: 'EXPLICIT_OPT_IN',
+      note: '需要服务端闸门与 TestNet 凭证；页面不会自动下单'
+    }),
+    canary: Object.freeze({
+      status: 'LOCKED',
+      label: 'Canary',
+      writes: 'DISABLED',
+      note: '需要独立审批、回滚闸门和健康对账'
+    }),
+    live: Object.freeze({
+      status: 'OFF',
+      label: 'Live',
+      writes: 'DISABLED',
+      note: '当前项目安全策略保持关闭，不接受前端绕过'
+    })
+  }),
   account: Object.freeze([
     Object.freeze({ label: '账户总权益', value: '125,840.26 USDT', detail: '模拟账本', tone: 'neutral' }),
     Object.freeze({ label: '可用保证金', value: '94,112.44 USDT', detail: '74.78% 可用', tone: 'healthy' }),
