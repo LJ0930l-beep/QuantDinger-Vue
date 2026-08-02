@@ -198,6 +198,15 @@
       </article>
     </section>
 
+    <section v-if="accountBook.length" class="section-shell" aria-labelledby="account-book-heading">
+      <div class="section-heading"><div><span class="section-kicker">Gate TestNet</span><h2 id="account-book-heading">账户资金流水</h2></div><span class="read-only-badge"><a-icon type="lock" /> 只读证据</span></div>
+      <div class="table-wrap compact" tabindex="0">
+        <table class="terminal-table"><thead><tr><th>时间</th><th>类型</th><th>变动</th><th>变动后余额</th><th>标的</th><th>成交 ID</th></tr></thead>
+          <tbody><tr v-for="entry in accountBook" :key="entry.event_id"><td>{{ entry.occurred_at }}</td><td><span class="text-status" :class="accountBookTone(entry.type)">{{ accountBookLabel(entry.type) }}</span></td><td :class="accountBookChangeClass(entry.change)">{{ entry.change }}</td><td>{{ entry.balance }}</td><td>{{ entry.instrument_id || '—' }}</td><td><code>{{ entry.trade_id || '—' }}</code></td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="section-shell" aria-labelledby="strategy-heading">
       <div class="section-heading"><div><span class="section-kicker">策略工厂</span><h2 id="strategy-heading">策略卡片</h2></div><span class="mock-copy">仅用于视觉占位</span></div>
       <div class="strategy-grid">
@@ -482,6 +491,12 @@ export default {
       const persisted = this.gateTestnetEnvironmentAccount || this.readonlyGateAccount
       return persisted && persisted.status === 'READY' && Array.isArray(persisted.fills)
         ? persisted.fills
+        : []
+    },
+    accountBook () {
+      const persisted = this.gateTestnetEnvironmentAccount || this.readonlyGateAccount
+      return persisted && persisted.status === 'READY' && Array.isArray(persisted.account_book)
+        ? persisted.account_book
         : []
     },
     visibleSignals () {
@@ -954,6 +969,15 @@ export default {
       if (status === 'RISK_REJECTED') return 'risk'
       if (status === 'REPLAYED') return 'purple'
       return 'healthy'
+    },
+    accountBookLabel (type) {
+      return ({ pnl: '已实现盈亏', fee: '交易手续费', fund: 'Funding', dnw: '资金变动', refr: '返佣', point_dnw: '积分资金变动', point_fee: '积分手续费', point_refr: '积分返佣', bonus_offset: '体验金扣减' })[type] || type
+    },
+    accountBookTone (type) {
+      return type === 'fee' || type === 'fund' ? 'warning' : (type === 'pnl' ? 'healthy' : 'neutral')
+    },
+    accountBookChangeClass (value) {
+      return String(value || '').trim().startsWith('-') ? 'risk' : 'healthy'
     },
     orderStatusTone (value) {
       const status = String(value || '').toUpperCase()
