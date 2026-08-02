@@ -45,6 +45,7 @@ test('frontend connects to the backend TestNet readonly account without credenti
   assert.match(view, /connectGateTestnetAccount/)
   assert.match(view, /listExchangeCredentials/)
   assert.match(view, /getReadonlyGateAccount/)
+  assert.match(view, /marketResponse = await getReadonlyGateMarket/)
   assert.match(view, /getGateTestnetEnvironmentAccount/)
   assert.match(view, /gateAccountForm\.account_scope/)
   assert.match(view, /凭证仅在后端环境中读取/)

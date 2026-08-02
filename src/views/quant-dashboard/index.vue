@@ -830,6 +830,22 @@ export default {
           throw new Error('Gate 凭证只读账户不可用')
         }
         this.gateTestnetEnvironmentAccount = body
+        // Refresh public TestNet market evidence for the selected scope.
+        // The account snapshot remains credential-backed; market data is read-only.
+        try {
+          const marketResponse = await getReadonlyGateMarket({
+            instrument_id: this.gateAccountForm.instrument_id,
+            market_type: this.gateAccountForm.market_type,
+            interval: '1m'
+          })
+          const marketBody = marketResponse && marketResponse.data ? marketResponse.data : marketResponse
+          if (marketBody && marketBody.bundle_fingerprint && marketBody.live_enabled === false) {
+            this.readonlyGateMarket = marketBody
+          }
+        } catch (marketError) {
+          // Keep account evidence usable if the public market endpoint is unavailable.
+          this.readonlyGateMarket = null
+        }
         this.interactionNote = '已刷新 Gate TestNet 真实账户只读快照；未启用下单或 Live'
       } catch (e) {
         this.gateTestnetEnvironmentAccount = null
