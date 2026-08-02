@@ -154,6 +154,14 @@
         <span>持久化 {{ productRehearsal.ledger_rehearsal.persistence }}</span>
         <span class="purple">只读构造 · 无账本写入</span>
       </div>
+      <div v-if="productRehearsal && productRehearsal.execution_worker" class="admission-evidence execution-evidence" data-testid="product-execution-worker">
+        <span class="admission-label">Admission → TestNet → Ledger</span>
+        <strong class="healthy">{{ productRehearsal.execution_worker.status }}</strong>
+        <span>订单 {{ productRehearsal.execution_worker.order_id }}</span>
+        <span>成交 {{ productRehearsal.execution_worker.fill_count }} 笔</span>
+        <span>账本 {{ productRehearsal.execution_worker.ledger_disposition || 'NO_FILL' }}</span>
+        <span class="purple">Fixture · 无网络写入 · Live OFF</span>
+      </div>
       <div v-if="productRehearsal && productRehearsal.canary_gate" class="admission-evidence canary-evidence" data-testid="product-canary-gate">
         <span class="admission-label">Canary / 回滚闸门</span>
         <strong :class="productRehearsal.canary_gate.decision === 'PROMOTION_CANDIDATE' ? 'healthy' : 'warning'">{{ productRehearsal.canary_gate.decision }}</strong>
