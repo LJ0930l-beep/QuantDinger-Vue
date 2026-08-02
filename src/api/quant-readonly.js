@@ -43,3 +43,12 @@ export function getResearchReadiness () {
     timeout: 8000
   })
 }
+
+/** Read-only Strategy Factory catalog; it cannot create or execute a strategy. */
+export function getReadonlyStrategyCatalog () {
+  return request({
+    url: '/api/quant/strategies/readonly',
+    method: 'get',
+    timeout: 8000
+  })
+}
