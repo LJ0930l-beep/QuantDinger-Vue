@@ -13,6 +13,7 @@
       </div>
       <div class="header-actions">
         <span class="mock-note" aria-live="polite">{{ interactionNote }}</span>
+        <span class="research-status" aria-live="polite">Backtest: {{ researchStatus.backtest }} · Paper/Shadow: {{ researchStatus.paperShadow }}</span>
         <a-button icon="sync" @click="refreshMock">刷新模拟数据</a-button>
         <a-button icon="eye" @click="toggleExpanded">{{ expanded ? '收起事件' : '展开事件' }}</a-button>
       </div>
@@ -138,7 +139,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -148,6 +149,8 @@ export default {
     return {
       dashboard: quantDashboardMock,
       readonlyState: null,
+      readonlyBacktest: null,
+      readonlyPaperShadow: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -155,6 +158,12 @@ export default {
     }
   },
   computed: {
+    researchStatus () {
+      return {
+        backtest: this.readonlyBacktest && this.readonlyBacktest.status ? this.readonlyBacktest.status : 'UNAVAILABLE',
+        paperShadow: this.readonlyPaperShadow && this.readonlyPaperShadow.status ? this.readonlyPaperShadow.status : 'UNAVAILABLE'
+      }
+    },
     statusItems () {
       const status = this.dashboard.status
       const reconciliation = this.readonlyState && this.readonlyState.reconciliation
@@ -191,6 +200,7 @@ export default {
       window.addEventListener('resize', this._resizeChart)
     })
     this.loadReadonlyState()
+    this.loadReadonlyResearchState()
   },
   beforeDestroy () {
     window.removeEventListener('resize', this._resizeChart)
@@ -209,6 +219,21 @@ export default {
         }
       } catch (e) {
         // The mock remains the safe default when the provider is unavailable.
+      }
+    },
+    async loadReadonlyResearchState () {
+      const unwrap = response => response && response.data ? response.data : response
+      try {
+        const response = await getReadonlyBacktestResult()
+        this.readonlyBacktest = unwrap(response)
+      } catch (e) {
+        this.readonlyBacktest = { status: 'UNAVAILABLE' }
+      }
+      try {
+        const response = await getReadonlyPaperShadowResult()
+        this.readonlyPaperShadow = unwrap(response)
+      } catch (e) {
+        this.readonlyPaperShadow = { status: 'UNAVAILABLE' }
       }
     },
     initEquityChart () {
@@ -297,7 +322,7 @@ export default {
 .dashboard-header, .section-heading, .strategy-title, .strategy-footer, .header-actions, .pipeline, .pipeline-cases, .hero-tags, .chart-footer { display: flex; align-items: center; }
 .dashboard-header { justify-content: space-between; gap: 24px; margin-bottom: 12px; }.hero-copy { min-width: 0; }.hero-tags { gap: 6px; margin-bottom: 7px; flex-wrap: wrap; }.hero-chip, .active-strategy { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .7px; }.hero-chip.demo { color: var(--cyan); }.hero-chip.paper { color: var(--green); }.hero-chip.shadow { color: var(--purple); }.active-strategy { color: #bed0da; letter-spacing: 0; }.active-strategy .anticon { color: var(--cyan); }
 h1, h2, h3, p { margin: 0; } h1, h2, h3 { color: var(--text) !important; } h1 { margin: 0 0 5px; font-size: clamp(22px, 1.85vw, 30px); letter-spacing: -.45px; } h2 { margin-top: 2px; font-size: 18px; } h3 { font-size: 16px; } .dashboard-header p { max-width: 720px; color: var(--muted); font-size: 12px; }
-.header-actions { justify-content: flex-end; gap: 8px; flex-wrap: wrap; }.mock-note { color: var(--muted); font-size: 11px; margin-right: 6px; }.quant-dashboard .ant-btn { height: 30px; color: #c7d8e1; border-color: #355164; background: rgba(17, 26, 35, .55); box-shadow: none; }.quant-dashboard .ant-btn:hover, .quant-dashboard .ant-btn:focus { color: var(--cyan); border-color: var(--cyan); background: rgba(57, 198, 223, .08); }.quant-dashboard .ant-btn.table-action { height: 23px; padding: 0 4px; color: #94bcca; border-color: transparent; background: transparent; }.quant-dashboard .ant-btn.table-action:hover, .quant-dashboard .ant-btn.table-action:focus { color: var(--cyan); border-color: transparent; background: transparent; }
+.header-actions { justify-content: flex-end; gap: 8px; flex-wrap: wrap; }.mock-note { color: var(--muted); font-size: 11px; margin-right: 6px; }.research-status { color: var(--purple); font-size: 10px; white-space: nowrap; }.quant-dashboard .ant-btn { height: 30px; color: #c7d8e1; border-color: #355164; background: rgba(17, 26, 35, .55); box-shadow: none; }.quant-dashboard .ant-btn:hover, .quant-dashboard .ant-btn:focus { color: var(--cyan); border-color: var(--cyan); background: rgba(57, 198, 223, .08); }.quant-dashboard .ant-btn.table-action { height: 23px; padding: 0 4px; color: #94bcca; border-color: transparent; background: transparent; }.quant-dashboard .ant-btn.table-action:hover, .quant-dashboard .ant-btn.table-action:focus { color: var(--cyan); border-color: transparent; background: transparent; }
 .read-only-badge, .mode-chip, .pill, .text-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .25px; white-space: nowrap; }.read-only-badge { color: var(--muted); }.mock-copy, .chart-caption { color: var(--muted); font-size: 11px; }
 .status-bar { display: grid; grid-template-columns: repeat(5, minmax(128px, 1fr)) minmax(260px, 1.4fr); gap: 1px; overflow-x: auto; margin-bottom: 14px; padding: 1px; border: 1px solid var(--line); background: var(--line); }.status-item { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; min-width: 0; padding: 9px 11px; background: var(--surface); }.status-item .anticon { grid-row: span 2; align-self: center; }.status-item span { color: var(--muted); font-size: 10px; }.status-item strong { font-size: 12px; }.status-item.timestamp { grid-template-columns: auto auto 1fr; align-items: center; }.status-item.timestamp .anticon { grid-row: auto; }.status-item.timestamp strong { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }.healthy { color: var(--green) !important; }.risk { color: var(--red) !important; }.warning { color: var(--orange) !important; }.shadow, .purple { color: var(--purple) !important; }.cyan { color: var(--cyan) !important; }.neutral { color: var(--text) !important; }
 .section-shell { margin-bottom: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: linear-gradient(145deg, rgba(23, 35, 48, .96), rgba(13, 22, 30, .96)); box-shadow: 0 16px 45px rgba(0, 0, 0, .14); }.section-heading { justify-content: space-between; gap: 16px; margin-bottom: 14px; }.compact-heading { margin-bottom: 12px; }.section-kicker { color: var(--cyan); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
