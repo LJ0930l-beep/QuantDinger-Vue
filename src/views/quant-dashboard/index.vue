@@ -147,6 +147,13 @@
         <span>手续费 {{ gateTestnetExecution.fee_amount }} {{ gateTestnetExecution.fee_asset }}</span>
         <span class="purple">仅 Fixture · 未联网 · 未写入</span>
       </div>
+      <div v-if="productRehearsal && productRehearsal.ledger_rehearsal" class="admission-evidence ledger-evidence" data-testid="product-ledger-rehearsal">
+        <span class="admission-label">Fill / Ledger 边界证据</span>
+        <strong class="healthy">{{ productRehearsal.ledger_rehearsal.status }}</strong>
+        <span>稳定成交 {{ productRehearsal.ledger_rehearsal.fill_count }} 笔</span>
+        <span>持久化 {{ productRehearsal.ledger_rehearsal.persistence }}</span>
+        <span class="purple">只读构造 · 无账本写入</span>
+      </div>
     </section>
 
     <section class="dashboard-grid health-grid">
