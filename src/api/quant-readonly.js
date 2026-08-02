@@ -108,6 +108,16 @@ export function submitGateTestnetOrder (payload = {}) {
   })
 }
 
+/** Cancel one Gate TestNet order by a stable venue order id. */
+export function cancelGateTestnetOrder (payload = {}) {
+  return request({
+    url: '/api/quant/gate/testnet/order/cancel',
+    method: 'post',
+    data: payload,
+    timeout: 20000
+  })
+}
+
 /** Explicit public Gate TestNet market evidence; unavailable unless enabled by the API operator. */
 export function getReadonlyGateMarket (scope = {}) {
   return request({

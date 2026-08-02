@@ -87,6 +87,10 @@
         <input v-model.trim="testnetConfirmation" class="testnet-confirmation" placeholder="输入 TESTNET 以解锁" aria-label="TestNet 确认短语" />
         <button type="button" class="ghost-action testnet-submit" :disabled="!testnetWriteUnlocked || testnetSubmitting" @click="submitTestnetOrder">{{ testnetSubmitting ? '提交中…' : '提交 TestNet 订单' }}</button>
       </div>
+      <div class="testnet-cancel-row">
+        <label>撤销已知 Venue Order ID<input v-model.trim="testnetCancelForm.exchange_order_id" placeholder="只接受稳定交易所订单 ID" /></label>
+        <button type="button" class="ghost-action testnet-submit" :disabled="!testnetWriteUnlocked || testnetSubmitting || !testnetCancelForm.exchange_order_id" @click="cancelTestnetOrder">{{ testnetSubmitting ? '处理中…' : '确认 TestNet 撤单' }}</button>
+      </div>
       <div v-if="testnetReceipt" class="admission-evidence execution-evidence" data-testid="testnet-order-receipt">
         <span class="admission-label">TestNet 回执</span>
         <strong :class="testnetReceipt.status === 'REJECTED' ? 'risk' : 'healthy'">{{ testnetReceipt.status }}</strong>
@@ -251,7 +255,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, cancelGateTestnetOrder, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -299,6 +303,7 @@ export default {
       testnetConfirmation: '',
       testnetSubmitting: false,
       testnetReceipt: null,
+      testnetCancelForm: { exchange_order_id: '' },
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -460,6 +465,37 @@ export default {
         const response = error && error.response && error.response.data
         this.testnetReceipt = response || { status: 'REJECTED', live_enabled: false }
         this.interactionNote = 'TestNet 订单被服务端闸门拒绝或暂不可用'
+      } finally {
+        this.testnetSubmitting = false
+      }
+    },
+    async cancelTestnetOrder () {
+      if (!this.testnetWriteUnlocked || !this.testnetCancelForm.exchange_order_id) return
+      this.testnetSubmitting = true
+      this.testnetReceipt = null
+      try {
+        const now = Date.now()
+        const payload = {
+          credential_id: this.testnetForm.credential_id,
+          instrument_id: this.testnetForm.instrument_id,
+          market_type: this.testnetForm.market_type,
+          mode: 'PAPER',
+          source: 'REST',
+          action: 'CANCEL',
+          position_side: 'NET',
+          cancel_target_kind: 'VENUE_ORDER_ID',
+          cancel_target_id: this.testnetCancelForm.exchange_order_id,
+          correlation_id: `frontend-testnet-cancel-${now}`,
+          occurred_at: new Date().toISOString(),
+          idempotency_key: `frontend-testnet-cancel-${now}`
+        }
+        const response = await cancelGateTestnetOrder(payload)
+        this.testnetReceipt = response && response.data ? response.data : response
+        this.interactionNote = 'TestNet 撤单已返回类型化回执；未触碰 Live'
+      } catch (error) {
+        const response = error && error.response && error.response.data
+        this.testnetReceipt = response || { status: 'REJECTED', live_enabled: false }
+        this.interactionNote = 'TestNet 撤单被服务端闸门拒绝或暂不可用'
       } finally {
         this.testnetSubmitting = false
       }
