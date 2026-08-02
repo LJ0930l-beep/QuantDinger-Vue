@@ -232,6 +232,20 @@ export default {
     },
     positionsDisplay () {
       const persisted = this.readonlyGateAccount
+      const paper = this.readonlyPaperAccount
+      if ((!persisted || persisted.status !== 'READY' || !Array.isArray(persisted.positions)) && paper && paper.status === 'READY' && Array.isArray(paper.positions)) {
+        return paper.positions.map(position => ({
+          symbol: position.symbol,
+          side: Number(position.signed_quantity) >= 0 ? 'LONG' : 'SHORT',
+          quantity: position.signed_quantity,
+          entry: position.average_entry_price || 'N/A',
+          mark: 'N/A',
+          pnl: position.realized_pnl || '0',
+          leverage: 'N/A',
+          risk: 'PAPER DERIVED',
+          protection: 'READ ONLY'
+        }))
+      }
       if (!persisted || persisted.status !== 'READY' || !Array.isArray(persisted.positions)) return this.dashboard.positions
       return persisted.positions.map(position => ({
         symbol: position.instrument_id,
