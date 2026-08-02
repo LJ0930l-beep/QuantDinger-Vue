@@ -75,7 +75,7 @@
         <table class="terminal-table">
           <thead><tr><th>标的</th><th>方向</th><th>数量</th><th>平均入场价</th><th>标记价格</th><th>未实现盈亏</th><th>杠杆</th><th>风险状态</th><th>保护状态</th><th>查看</th></tr></thead>
           <tbody>
-            <tr v-for="position in dashboard.positions" :key="position.symbol">
+            <tr v-for="position in positionsDisplay" :key="position.symbol">
               <td><strong>{{ position.symbol }}</strong></td><td><span class="pill" :class="position.side.toLowerCase()">{{ position.side === 'LONG' ? '多' : '空' }}</span></td><td>{{ position.quantity }}</td><td>{{ position.entry }}</td><td>{{ position.mark }}</td><td class="positive">{{ position.pnl }}</td><td>{{ position.leverage }}</td><td><span class="text-status healthy">{{ position.risk }}</span></td><td><span class="text-status shadow">{{ position.protection }}</span></td>
               <td><a-button class="table-action" type="link" size="small" icon="search" @click="inspect(position.symbol)">查看</a-button></td>
             </tr>
@@ -146,7 +146,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -169,6 +169,7 @@ export default {
       readonlyShadow: null,
       nonLiveRunManifest: null,
       deploymentReadiness: null,
+      readonlyGateAccount: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -179,8 +180,8 @@ export default {
     researchStatus () {
       return {
         backtest: this.readonlyBacktest && this.readonlyBacktest.status ? this.readonlyBacktest.status : 'UNAVAILABLE',
-        paperShadow: this.readonlyPaperShadow && this.readonlyPaperShadow.status ? this.readonlyPaperShadow.status : 'UNAVAILABLE'
-        ,readiness: this.researchReadiness && this.researchReadiness.status ? this.researchReadiness.status : 'UNAVAILABLE'
+        paperShadow: this.readonlyPaperShadow && this.readonlyPaperShadow.status ? this.readonlyPaperShadow.status : 'UNAVAILABLE',
+        readiness: this.researchReadiness && this.researchReadiness.status ? this.researchReadiness.status : 'UNAVAILABLE'
       }
     },
     reconciliationDisplay () {
@@ -226,6 +227,21 @@ export default {
     accountRiskSummary () {
       const names = ['总敞口', '净敞口', '活动预留']
       return names.map(name => this.dashboard.account.find(metric => metric.label === name)).filter(Boolean)
+    },
+    positionsDisplay () {
+      const persisted = this.readonlyGateAccount
+      if (!persisted || persisted.status !== 'READY' || !Array.isArray(persisted.positions)) return this.dashboard.positions
+      return persisted.positions.map(position => ({
+        symbol: position.instrument_id,
+        side: String(position.side || '').toUpperCase(),
+        quantity: position.quantity,
+        entry: position.average_entry_price,
+        mark: position.mark_price,
+        pnl: '只读证据',
+        leverage: `${position.leverage}x`,
+        risk: '已核验',
+        protection: '只读'
+      }))
     },
     visibleSignals () {
       return this.signalFilterOn
@@ -301,6 +317,7 @@ export default {
       }
       await this.loadReadonlyReconciliation()
       await this.loadReadonlyShadow()
+      await this.loadReadonlyGateAccount()
       try {
         const response = await getReadonlyResearchRun()
         this.researchRun = unwrap(response)
@@ -372,6 +389,23 @@ export default {
         if (body && body.run_id && body.live_enabled === false) this.readonlyShadow = body
       } catch (e) {
         this.readonlyShadow = null
+      }
+    },
+    async loadReadonlyGateAccount () {
+      const query = (this.$route && this.$route.query) || {}
+      const scope = {
+        credential_id: query.credential_id,
+        market_type: query.market_type,
+        account_scope: query.account_scope,
+        instrument_id: query.instrument_id
+      }
+      if (!query.gate_account || !scope.credential_id || !scope.market_type || !scope.account_scope) return
+      try {
+        const response = await getReadonlyGateAccount(scope)
+        const body = response && response.data ? response.data : response
+        if (body && body.status === 'READY' && body.live_enabled === false) this.readonlyGateAccount = body
+      } catch (e) {
+        this.readonlyGateAccount = null
       }
     },
     initEquityChart () {

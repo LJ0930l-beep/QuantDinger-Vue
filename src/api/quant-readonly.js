@@ -61,6 +61,22 @@ export function getReadonlyShadowSummary (scope = {}) {
   })
 }
 
+/** Read-only Gate account evidence; the backend provider is injected and may be unavailable. */
+export function getReadonlyGateAccount (scope = {}) {
+  return request({
+    url: '/api/quant/gate/account/readonly',
+    method: 'get',
+    params: {
+      credential_id: scope.credential_id,
+      market_type: scope.market_type,
+      account_scope: scope.account_scope,
+      instrument_id: scope.instrument_id,
+      as_of: scope.as_of
+    },
+    timeout: 8000
+  })
+}
+
 /**
  * Read-only deterministic backtest result.  A missing provider is expected
  * to return 503; the dashboard must retain its explicit mock fallback and
