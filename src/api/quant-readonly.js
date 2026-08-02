@@ -225,6 +225,16 @@ export function getReadonlyDurablePaperAccount (limit = 200) {
   })
 }
 
+/** Persist one PAPER order through Canonical Entry + Hard Risk + Outbox. */
+export function submitPaperOrder (payload = {}) {
+  return request({
+    url: '/api/quant/paper/order',
+    method: 'post',
+    data: { ...payload, mode: 'PAPER' },
+    timeout: 20000
+  })
+}
+
 /** Replay persisted Paper facts against an explicit snapshot checkpoint. */
 export function getReadonlyPaperRecovery (options = {}) {
   return request({
