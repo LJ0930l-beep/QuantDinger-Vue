@@ -125,7 +125,7 @@
     <section class="dashboard-grid health-grid">
       <article class="section-shell" aria-labelledby="shadow-heading">
         <div class="section-heading"><div><span class="section-kicker">影子验证</span><h2 id="shadow-heading">Shadow 差异</h2></div><a-button class="table-action" type="link" icon="eye" @click="view('shadow-diff')">查看</a-button></div>
-        <dl class="detail-list"><div><dt>候选状态</dt><dd>{{ dashboard.shadow.candidate }}</dd></div><div><dt>旧系统状态</dt><dd>{{ dashboard.shadow.legacy }}</dd></div><div><dt>差异数量</dt><dd>{{ dashboard.shadow.differences }}</dd></div><div><dt>匹配状态</dt><dd class="healthy">{{ dashboard.shadow.match }}</dd></div><div><dt>容差版本</dt><dd>{{ dashboard.shadow.tolerance }}</dd></div><div><dt>最后比较</dt><dd>{{ dashboard.shadow.comparison }}</dd></div></dl>
+        <dl class="detail-list"><div><dt>候选状态</dt><dd>{{ shadowDisplay.candidate }}</dd></div><div><dt>旧系统状态</dt><dd>{{ shadowDisplay.legacy }}</dd></div><div><dt>差异数量</dt><dd>{{ shadowDisplay.differences }}</dd></div><div><dt>匹配状态</dt><dd class="healthy">{{ shadowDisplay.match }}</dd></div><div><dt>容差版本</dt><dd>{{ shadowDisplay.tolerance }}</dd></div><div><dt>最后比较</dt><dd>{{ shadowDisplay.comparison }}</dd></div></dl>
       </article>
       <article class="section-shell" aria-labelledby="reconciliation-heading">
         <div class="section-heading"><div><span class="section-kicker">健康度</span><h2 id="reconciliation-heading">对账与健康度</h2></div><a-button icon="reload" @click="refreshMock">刷新模拟数据</a-button></div>
@@ -146,7 +146,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -166,6 +166,7 @@ export default {
       quantOperations: null,
       projectionGeneration: null,
       readonlyReconciliation: null,
+      readonlyShadow: null,
       nonLiveRunManifest: null,
       deploymentReadiness: null,
       expanded: false,
@@ -192,6 +193,18 @@ export default {
         watermark: `version: ${persisted.version}`,
         derivedHealth: persisted.derived_health,
         nextCheck: persisted.sla_deadline || '未设置'
+      }
+    },
+    shadowDisplay () {
+      const persisted = this.readonlyShadow
+      if (!persisted || !persisted.run_id) return this.dashboard.shadow
+      return {
+        candidate: `${persisted.candidate_consumer_name} / generation ${persisted.candidate_generation_id.slice(0, 8)}`,
+        legacy: `checkpoint ${persisted.candidate_checkpoint_watermark}`,
+        differences: `${persisted.diff_count} total / ${persisted.blocking_diff_count} blocking`,
+        match: persisted.match_status,
+        tolerance: persisted.tolerance_policy_version,
+        comparison: persisted.completed_at
       }
     },
     statusItems () {
@@ -284,6 +297,7 @@ export default {
         this.projectionGeneration = { status: 'UNAVAILABLE', live_enabled: false }
       }
       await this.loadReadonlyReconciliation()
+      await this.loadReadonlyShadow()
       try {
         const response = await getReadonlyResearchRun()
         this.researchRun = unwrap(response)
@@ -337,6 +351,24 @@ export default {
         if (body && body.checkpoint_status && body.live_enabled === false) this.readonlyReconciliation = body
       } catch (e) {
         this.readonlyReconciliation = null
+      }
+    },
+    async loadReadonlyShadow () {
+      const query = (this.$route && this.$route.query) || {}
+      const scope = {
+        credential_id: query.credential_id,
+        exchange: query.exchange,
+        market_type: query.market_type,
+        account_scope: query.account_scope,
+        instrument_id: query.instrument_id
+      }
+      if (!scope.credential_id || !scope.exchange || !scope.market_type || !scope.account_scope || !scope.instrument_id) return
+      try {
+        const response = await getReadonlyShadowSummary(scope)
+        const body = response && response.data ? response.data : response
+        if (body && body.run_id && body.live_enabled === false) this.readonlyShadow = body
+      } catch (e) {
+        this.readonlyShadow = null
       }
     },
     initEquityChart () {

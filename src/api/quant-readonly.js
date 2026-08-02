@@ -44,6 +44,23 @@ export function getReadonlyReconciliationCheckpoint (scope = {}) {
   })
 }
 
+/** Read-only, credential- and instrument-scoped Shadow Diff summary. */
+export function getReadonlyShadowSummary (scope = {}) {
+  return request({
+    url: '/api/quant/shadow/summary/readonly',
+    method: 'get',
+    params: {
+      credential_id: scope.credential_id,
+      exchange: scope.exchange,
+      market_type: scope.market_type,
+      account_scope: scope.account_scope,
+      instrument_id: scope.instrument_id,
+      as_of: scope.as_of
+    },
+    timeout: 8000
+  })
+}
+
 /**
  * Read-only deterministic backtest result.  A missing provider is expected
  * to return 503; the dashboard must retain its explicit mock fallback and
