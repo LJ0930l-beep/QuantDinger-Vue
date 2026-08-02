@@ -13,6 +13,7 @@
       </div>
       <div class="header-actions">
         <span class="mock-note" aria-live="polite">{{ interactionNote }}</span>
+        <span class="research-status" aria-live="polite">Strategy Catalog: {{ strategyCatalog && strategyCatalog.status ? strategyCatalog.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Backtest: {{ researchStatus.backtest }} · Paper/Shadow: {{ researchStatus.paperShadow }}</span>
         <a-button icon="sync" @click="refreshMock">刷新模拟数据</a-button>
         <a-button icon="eye" @click="toggleExpanded">{{ expanded ? '收起事件' : '展开事件' }}</a-button>
