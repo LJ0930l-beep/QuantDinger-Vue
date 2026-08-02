@@ -42,6 +42,10 @@
               </div>
               <div class="crypto-item-line">
                 <span v-if="item.api_key_hint" class="crypto-item-hint">{{ item.api_key_hint }}</span>
+                <span v-if="item.environment" class="credential-environment" :class="`credential-environment--${String(item.environment).toLowerCase()}`">
+                  {{ String(item.environment).toLowerCase() === 'testnet' ? 'TESTNET' : String(item.environment).toUpperCase() }}
+                </span>
+                <span v-if="item.market_scope" class="credential-market-scope">{{ item.market_scope }}</span>
                 <span v-if="item.created_at" class="crypto-item-time">{{ formatTime(item.created_at) }}</span>
               </div>
             </div>
@@ -584,6 +588,26 @@ export default {
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   word-break: break-all;
+}
+.credential-environment,
+.credential-market-scope {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.credential-environment--testnet { color: #087f5b; background: #d3f9d8; }
+.credential-environment--live { color: #a61e4d; background: #ffe3e3; }
+.credential-market-scope { color: #495057; background: #f1f3f5; font-weight: 600; }
+.crypto-card.theme-dark {
+  .credential-environment--testnet { color: #8ce99a; background: rgba(47, 158, 68, .24); }
+  .credential-environment--live { color: #ffa8a8; background: rgba(201, 42, 42, .24); }
+  .credential-market-scope { color: rgba(255, 255, 255, .72); background: rgba(255, 255, 255, .1); }
 }
 .crypto-item-time { color: #bfbfbf; font-size: 11px; }
 .crypto-card.theme-dark .crypto-item-time { color: rgba(255, 255, 255, 0.4); }
