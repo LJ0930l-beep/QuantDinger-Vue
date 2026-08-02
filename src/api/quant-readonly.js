@@ -118,6 +118,22 @@ export function cancelGateTestnetOrder (payload = {}) {
   })
 }
 
+/** Read one TestNet order without enabling any write capability. */
+export function getGateTestnetOrder (scope = {}) {
+  return request({
+    url: '/api/quant/gate/testnet/order',
+    method: 'get',
+    params: {
+      credential_id: scope.credential_id,
+      account_scope: scope.account_scope,
+      instrument_id: scope.instrument_id,
+      market_type: scope.market_type || 'spot',
+      exchange_order_id: scope.exchange_order_id
+    },
+    timeout: 12000
+  })
+}
+
 /** Explicit public Gate TestNet market evidence; unavailable unless enabled by the API operator. */
 export function getReadonlyGateMarket (scope = {}) {
   return request({

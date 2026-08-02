@@ -90,6 +90,8 @@
       <div class="testnet-cancel-row">
         <label>撤销已知 Venue Order ID<input v-model.trim="testnetCancelForm.exchange_order_id" placeholder="只接受稳定交易所订单 ID" /></label>
         <button type="button" class="ghost-action testnet-submit" :disabled="!testnetWriteUnlocked || testnetSubmitting || !testnetCancelForm.exchange_order_id" @click="cancelTestnetOrder">{{ testnetSubmitting ? '处理中…' : '确认 TestNet 撤单' }}</button>
+        <label>查询 Order ID<input v-model.trim="testnetQueryForm.exchange_order_id" placeholder="只读查询，不写入" /></label>
+        <button type="button" class="ghost-action testnet-submit" :disabled="testnetQuerying || !testnetQueryForm.exchange_order_id" @click="queryTestnetOrder">{{ testnetQuerying ? '查询中…' : '只读查询状态' }}</button>
       </div>
       <div v-if="testnetReceipt" class="admission-evidence execution-evidence" data-testid="testnet-order-receipt">
         <span class="admission-label">TestNet 回执</span>
@@ -255,7 +257,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, cancelGateTestnetOrder, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, cancelGateTestnetOrder, getGateTestnetOrder, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -304,6 +306,8 @@ export default {
       testnetSubmitting: false,
       testnetReceipt: null,
       testnetCancelForm: { exchange_order_id: '' },
+      testnetQueryForm: { exchange_order_id: '' },
+      testnetQuerying: false,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -498,6 +502,27 @@ export default {
         this.interactionNote = 'TestNet 撤单被服务端闸门拒绝或暂不可用'
       } finally {
         this.testnetSubmitting = false
+      }
+    },
+    async queryTestnetOrder () {
+      if (this.testnetQuerying || !this.testnetQueryForm.exchange_order_id) return
+      this.testnetQuerying = true
+      try {
+        const response = await getGateTestnetOrder({
+          credential_id: this.testnetForm.credential_id,
+          account_scope: this.testnetForm.account_scope,
+          instrument_id: this.testnetForm.instrument_id,
+          market_type: this.testnetForm.market_type,
+          exchange_order_id: this.testnetQueryForm.exchange_order_id
+        })
+        this.testnetReceipt = response && response.data ? response.data : response
+        this.interactionNote = '已完成 Gate TestNet 只读订单查询'
+      } catch (error) {
+        const response = error && error.response && error.response.data
+        this.testnetReceipt = response || { status: 'UNAVAILABLE', live_enabled: false }
+        this.interactionNote = 'TestNet 订单查询不可用或未找到'
+      } finally {
+        this.testnetQuerying = false
       }
     },
     async loadReadonlyResearchState () {
@@ -811,7 +836,7 @@ h1, h2, h3, p { margin: 0; } h1, h2, h3 { color: var(--text) !important; } h1 { 
 .status-bar { display: grid; grid-template-columns: repeat(5, minmax(128px, 1fr)) minmax(260px, 1.4fr); gap: 1px; overflow-x: auto; margin-bottom: 14px; padding: 1px; border: 1px solid var(--line); background: var(--line); }.status-item { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; min-width: 0; padding: 9px 11px; background: var(--surface); }.status-item .anticon { grid-row: span 2; align-self: center; }.status-item span { color: var(--muted); font-size: 10px; }.status-item strong { font-size: 12px; }.status-item.timestamp { grid-template-columns: auto auto 1fr; align-items: center; }.status-item.timestamp .anticon { grid-row: auto; }.status-item.timestamp strong { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }.healthy { color: var(--green) !important; }.risk { color: var(--red) !important; }.warning { color: var(--orange) !important; }.shadow, .purple { color: var(--purple) !important; }.cyan { color: var(--cyan) !important; }.neutral { color: var(--text) !important; }
 .section-shell { margin-bottom: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: linear-gradient(145deg, rgba(23, 35, 48, .96), rgba(13, 22, 30, .96)); box-shadow: 0 16px 45px rgba(0, 0, 0, .14); }.section-heading { justify-content: space-between; gap: 16px; margin-bottom: 14px; }.compact-heading { margin-bottom: 12px; }.section-kicker { color: var(--cyan); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
 .environment-grid { display: grid; grid-template-columns: 1.25fr repeat(3, minmax(210px, 1fr)); gap: 9px; }.environment-card { min-width: 0; padding: 13px; border: 1px solid var(--line); background: rgba(7, 14, 20, .48); }.environment-card.current { border-color: rgba(57, 198, 223, .55); background: linear-gradient(145deg, rgba(57, 198, 223, .1), rgba(7, 14, 20, .45)); }.environment-card.testnet { border-color: rgba(82, 201, 140, .38); }.environment-card.canary { border-color: rgba(244, 162, 97, .35); }.environment-card.live { border-color: rgba(236, 111, 115, .4); }.environment-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11px; }.environment-card-head strong { font-size: 12px; letter-spacing: .4px; }.environment-card p { min-height: 34px; margin: 10px 0; color: #b9c8d3; font-size: 11px; line-height: 1.5; }.ghost-action { padding: 0; border: 0; color: #94bcca; background: transparent; font-size: 11px; cursor: pointer; }.ghost-action:hover, .ghost-action:focus { color: var(--cyan); outline: none; }
-.testnet-console-shell { border-color: rgba(82, 201, 140, .38); }.testnet-warning { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 12px; padding: 10px 12px; border: 1px solid rgba(244, 162, 97, .36); background: rgba(244, 162, 97, .06); color: #f5c798; font-size: 11px; line-height: 1.5; }.testnet-warning .anticon { margin-top: 2px; color: var(--orange); }.testnet-form-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 10px; }.testnet-form-grid label { display: grid; gap: 5px; color: var(--muted); font-size: 10px; }.testnet-form-grid input, .testnet-form-grid select, .testnet-confirmation { width: 100%; min-height: 31px; box-sizing: border-box; padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; outline: none; color: var(--text); background: rgba(7, 14, 20, .7); font: inherit; }.testnet-form-grid input:focus, .testnet-form-grid select:focus, .testnet-confirmation:focus { border-color: var(--cyan); }.testnet-ack-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }.testnet-checkbox { display: inline-flex; align-items: center; gap: 6px; color: #c7d8e1; font-size: 11px; }.testnet-checkbox input { accent-color: var(--cyan); }.testnet-confirmation { width: 150px; }.testnet-submit { min-height: 31px; padding: 0 12px; border: 1px solid rgba(57, 198, 223, .46); border-radius: 5px; }.testnet-submit:disabled { cursor: not-allowed; opacity: .4; }
+.testnet-cancel-row { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(38, 56, 71, .7); }.testnet-cancel-row label { display: grid; gap: 5px; min-width: 220px; color: var(--muted); font-size: 10px; }.testnet-cancel-row input { min-height: 31px; box-sizing: border-box; padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; outline: none; color: var(--text); background: rgba(7, 14, 20, .7); font: inherit; }.testnet-cancel-row input:focus { border-color: var(--cyan); }
 .metric-grid { display: grid; grid-template-columns: minmax(240px, 1.28fr) repeat(3, minmax(170px, 1fr)); gap: 9px; }.metric-card { min-width: 0; padding: 13px; border: 1px solid var(--line); background: rgba(7, 14, 20, .45); }.metric-card:first-child { border-color: rgba(57, 198, 223, .55); background: linear-gradient(145deg, rgba(57, 198, 223, .11), rgba(7, 14, 20, .45)); }.metric-card.healthy strong { color: var(--green); }.metric-card.warning strong { color: var(--orange); }.metric-card span, .metric-card small { display: block; color: var(--muted); font-size: 11px; }.metric-card strong { display: block; margin: 7px 0 5px; font-size: 18px; white-space: nowrap; font-variant-numeric: tabular-nums; }.metric-card:first-child strong { color: var(--cyan); font-size: 22px; }
 .dashboard-grid { display: grid; gap: 14px; }.performance-risk-grid { grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); }.chart-shell { min-height: 300px; }.equity-chart { width: 100%; height: 230px; }.chart-footer { justify-content: flex-start; gap: 16px; padding-top: 3px; color: var(--muted); font-size: 11px; }.chart-footer strong { margin-left: auto; color: var(--purple); font-size: 11px; }.legend-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; }.legend-dot.equity { background: var(--cyan); }.legend-dot.pnl { background: var(--green); }
 .risk-summary-shell { background: linear-gradient(145deg, rgba(23, 35, 48, .96), rgba(17, 22, 30, .98)); }.summary-list { display: grid; gap: 1px; margin: 0; border: 1px solid var(--line); background: var(--line); }.summary-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px; background: rgba(7, 14, 20, .48); }.summary-list dt { color: var(--muted); font-size: 11px; }.summary-list dd { margin: 0; text-align: right; }.summary-list strong, .summary-list small { display: block; }.summary-list strong { font-size: 13px; }.summary-list small { margin-top: 3px; color: var(--muted); font-size: 10px; }.risk-callout { display: flex; gap: 8px; margin-top: 12px; padding: 10px; border: 1px solid rgba(82, 201, 140, .28); background: rgba(82, 201, 140, .06); color: #b6dbc8; font-size: 11px; line-height: 1.5; }.risk-callout .anticon { margin-top: 2px; color: var(--green); }
