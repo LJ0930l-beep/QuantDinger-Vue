@@ -24,6 +24,27 @@ export function getReadonlyProjectionGeneration (consumer = 'candidate') {
 }
 
 /**
+ * Read-only, credential- and instrument-scoped reconciliation checkpoint.
+ * The dashboard only calls this when the route already provides a complete
+ * scope; it never invents identifiers or falls back to a write-capable API.
+ */
+export function getReadonlyReconciliationCheckpoint (scope = {}) {
+  return request({
+    url: '/api/quant/reconciliation/checkpoint/readonly',
+    method: 'get',
+    params: {
+      credential_id: scope.credential_id,
+      exchange: scope.exchange,
+      market_type: scope.market_type,
+      account_scope: scope.account_scope,
+      instrument_id: scope.instrument_id,
+      as_of: scope.as_of
+    },
+    timeout: 8000
+  })
+}
+
+/**
  * Read-only deterministic backtest result.  A missing provider is expected
  * to return 503; the dashboard must retain its explicit mock fallback and
  * never call a write-capable backtest endpoint from this helper.
