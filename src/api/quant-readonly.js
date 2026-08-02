@@ -93,6 +93,15 @@ export function getReadonlyGateMarket (scope = {}) {
   })
 }
 
+/** Complete fixture-only product rehearsal; never a write-capable path. */
+export function getReadonlyProductRehearsal () {
+  return request({
+    url: '/api/quant/product/rehearsal/readonly',
+    method: 'get',
+    timeout: 12000
+  })
+}
+
 /**
  * Read-only deterministic backtest result.  A missing provider is expected
  * to return 503; the dashboard must retain its explicit mock fallback and
