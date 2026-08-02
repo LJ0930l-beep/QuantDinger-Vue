@@ -12,3 +12,25 @@ export function getReadonlyQuantState () {
     timeout: 8000
   })
 }
+
+/**
+ * Read-only deterministic backtest result.  A missing provider is expected
+ * to return 503; the dashboard must retain its explicit mock fallback and
+ * never call a write-capable backtest endpoint from this helper.
+ */
+export function getReadonlyBacktestResult () {
+  return request({
+    url: '/api/quant/backtest/readonly',
+    method: 'get',
+    timeout: 8000
+  })
+}
+
+/** Read-only Paper/Shadow run summary; never a write or execution call. */
+export function getReadonlyPaperShadowResult () {
+  return request({
+    url: '/api/quant/paper-shadow/readonly',
+    method: 'get',
+    timeout: 8000
+  })
+}
