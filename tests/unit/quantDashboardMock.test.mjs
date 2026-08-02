@@ -51,3 +51,12 @@ test('frontend connects to the backend TestNet readonly account without credenti
   assert.doesNotMatch(view, /GATE_TESTNET_API_SECRET\s*=/)
   assert.doesNotMatch(view, /GATE_TESTNET_API_KEY\s*=/)
 })
+
+test('TestNet execution reuses a saved Gate credential and never accepts raw secrets', () => {
+  const view = readFileSync(new URL('../../src/views/quant-dashboard/index.vue', import.meta.url), 'utf8')
+  assert.match(view, /Gate TestNet 凭证<select v-model="testnetForm\.credential_id"/)
+  assert.match(view, /v-for="credential in gateTestnetCredentials"/)
+  assert.match(view, /!testnetForm\.credential_id/)
+  assert.doesNotMatch(view, /api[_-]?secret\s*[:=]/i)
+  assert.doesNotMatch(view, /api[_-]?key\s*[:=]/i)
+})

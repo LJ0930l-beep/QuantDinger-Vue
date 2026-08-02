@@ -91,7 +91,12 @@
         <span>这是可产生 TestNet 模拟成交的写入入口。必须由服务端显式开启闸门；前端不保存、不接收 API Key/Secret，也不能选择 Live。</span>
       </div>
       <div class="testnet-form-grid">
-        <label>Credential ID<input v-model.trim="testnetForm.credential_id" inputmode="numeric" placeholder="服务端已保存的凭证 ID" /></label>
+        <label>Gate TestNet 凭证<select v-model="testnetForm.credential_id">
+          <option value="">请选择已保存凭证</option>
+          <option v-for="credential in gateTestnetCredentials" :key="credential.id" :value="String(credential.id)">
+            {{ credential.name || credential.api_key_hint || `Gate TestNet #${credential.id}` }}
+          </option>
+        </select></label>
         <label>Account Scope<input v-model.trim="testnetForm.account_scope" placeholder="例如 gate-testnet" /></label>
         <label>Instrument<input v-model.trim="testnetForm.instrument_id" placeholder="BTC_USDT" /></label>
         <label>Market Type<select v-model="testnetForm.market_type"><option value="spot">Spot 现货</option><option value="perpetual">Perpetual 合约</option></select></label>
@@ -107,13 +112,13 @@
       <div class="testnet-ack-row">
         <label class="testnet-checkbox"><input v-model="testnetWriteAcknowledged" type="checkbox" /> 我确认这是 Gate TestNet，不是真实资金环境</label>
         <input v-model.trim="testnetConfirmation" class="testnet-confirmation" placeholder="输入 TESTNET 以解锁" aria-label="TestNet 确认短语" />
-        <button type="button" class="ghost-action testnet-submit" :disabled="!testnetWriteUnlocked || testnetSubmitting" @click="submitTestnetOrder">{{ testnetSubmitting ? '提交中…' : '提交 TestNet 订单' }}</button>
+        <button type="button" class="ghost-action testnet-submit" :disabled="!testnetWriteUnlocked || testnetSubmitting || !testnetForm.credential_id" @click="submitTestnetOrder">{{ testnetSubmitting ? '提交中…' : '提交 TestNet 订单' }}</button>
       </div>
       <div class="testnet-cancel-row">
         <label>撤销已知 Venue Order ID<input v-model.trim="testnetCancelForm.exchange_order_id" placeholder="只接受稳定交易所订单 ID" /></label>
-        <button type="button" class="ghost-action testnet-submit" :disabled="!testnetWriteUnlocked || testnetSubmitting || !testnetCancelForm.exchange_order_id" @click="cancelTestnetOrder">{{ testnetSubmitting ? '处理中…' : '确认 TestNet 撤单' }}</button>
+        <button type="button" class="ghost-action testnet-submit" :disabled="!testnetWriteUnlocked || testnetSubmitting || !testnetForm.credential_id || !testnetCancelForm.exchange_order_id" @click="cancelTestnetOrder">{{ testnetSubmitting ? '处理中…' : '确认 TestNet 撤单' }}</button>
         <label>查询 Order ID<input v-model.trim="testnetQueryForm.exchange_order_id" placeholder="只读查询，不写入" /></label>
-        <button type="button" class="ghost-action testnet-submit" :disabled="testnetQuerying || !testnetQueryForm.exchange_order_id" @click="queryTestnetOrder">{{ testnetQuerying ? '查询中…' : '只读查询状态' }}</button>
+        <button type="button" class="ghost-action testnet-submit" :disabled="testnetQuerying || !testnetForm.credential_id || !testnetQueryForm.exchange_order_id" @click="queryTestnetOrder">{{ testnetQuerying ? '查询中…' : '只读查询状态' }}</button>
       </div>
       <div v-if="testnetReceipt" class="admission-evidence execution-evidence" data-testid="testnet-order-receipt">
         <span class="admission-label">TestNet 回执</span>
@@ -738,6 +743,9 @@ export default {
         })
         if (!this.gateAccountForm.credential_id && this.gateTestnetCredentials.length === 1) {
           this.gateAccountForm.credential_id = String(this.gateTestnetCredentials[0].id)
+        }
+        if (!this.testnetForm.credential_id && this.gateTestnetCredentials.length === 1) {
+          this.testnetForm.credential_id = String(this.gateTestnetCredentials[0].id)
         }
       } catch (e) {
         this.gateTestnetCredentials = []
