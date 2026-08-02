@@ -70,3 +70,12 @@ export function getReadonlyReleaseReadiness () {
     timeout: 8000
   })
 }
+
+/** Read-only Gate TestNet rehearsal evidence; it cannot submit orders. */
+export function getReadonlyTestnetRehearsal () {
+  return request({
+    url: '/api/quant/testnet/rehearsal/readonly',
+    method: 'get',
+    timeout: 8000
+  })
+}

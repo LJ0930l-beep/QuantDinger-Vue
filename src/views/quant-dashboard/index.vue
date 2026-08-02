@@ -15,6 +15,7 @@
         <span class="mock-note" aria-live="polite">{{ interactionNote }}</span>
         <span class="research-status" aria-live="polite">Strategy Catalog: {{ strategyCatalog && strategyCatalog.status ? strategyCatalog.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Release Gate: {{ releaseReadiness && releaseReadiness.status ? releaseReadiness.status : 'UNAVAILABLE' }}</span>
+        <span class="research-status" aria-live="polite">TestNet Rehearsal: {{ testnetRehearsal && testnetRehearsal.status ? testnetRehearsal.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Backtest: {{ researchStatus.backtest }} · Paper/Shadow: {{ researchStatus.paperShadow }}</span>
         <a-button icon="sync" @click="refreshMock">刷新模拟数据</a-button>
         <a-button icon="eye" @click="toggleExpanded">{{ expanded ? '收起事件' : '展开事件' }}</a-button>
@@ -141,7 +142,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -157,6 +158,7 @@ export default {
       strategyCatalog: null,
       researchRun: null,
       releaseReadiness: null,
+      testnetRehearsal: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -265,6 +267,12 @@ export default {
         this.releaseReadiness = unwrap(response)
       } catch (e) {
         this.releaseReadiness = { status: 'UNAVAILABLE' }
+      }
+      try {
+        const response = await getReadonlyTestnetRehearsal()
+        this.testnetRehearsal = unwrap(response)
+      } catch (e) {
+        this.testnetRehearsal = { status: 'UNAVAILABLE' }
       }
     },
     initEquityChart () {
