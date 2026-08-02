@@ -97,3 +97,12 @@ export function getReadonlyNonLiveRunManifest () {
     timeout: 8000
   })
 }
+
+/** Read-only artifact and rollback readiness; no deployment side effects. */
+export function getReadonlyDeploymentReadiness () {
+  return request({
+    url: '/api/quant/deployment/readiness/readonly',
+    method: 'get',
+    timeout: 8000
+  })
+}

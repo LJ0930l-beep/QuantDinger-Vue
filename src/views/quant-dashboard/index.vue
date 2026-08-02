@@ -18,6 +18,7 @@
         <span class="research-status" aria-live="polite">TestNet Rehearsal: {{ testnetRehearsal && testnetRehearsal.status ? testnetRehearsal.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Operations: {{ quantOperations && quantOperations.status ? quantOperations.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Run Manifest: {{ nonLiveRunManifest && nonLiveRunManifest.status ? nonLiveRunManifest.status : 'UNAVAILABLE' }}</span>
+        <span class="research-status" aria-live="polite">Deployment: {{ deploymentReadiness && deploymentReadiness.status ? deploymentReadiness.status : 'UNAVAILABLE' }}</span>
         <span class="research-status" aria-live="polite">Backtest: {{ researchStatus.backtest }} · Paper/Shadow: {{ researchStatus.paperShadow }}</span>
         <a-button icon="sync" @click="refreshMock">刷新模拟数据</a-button>
         <a-button icon="eye" @click="toggleExpanded">{{ expanded ? '收起事件' : '展开事件' }}</a-button>
@@ -144,7 +145,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyNonLiveRunManifest } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPaperShadowResult, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -163,6 +164,7 @@ export default {
       testnetRehearsal: null,
       quantOperations: null,
       nonLiveRunManifest: null,
+      deploymentReadiness: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -289,6 +291,12 @@ export default {
         this.nonLiveRunManifest = unwrap(response)
       } catch (e) {
         this.nonLiveRunManifest = { status: 'UNAVAILABLE', live_enabled: false }
+      }
+      try {
+        const response = await getReadonlyDeploymentReadiness()
+        this.deploymentReadiness = unwrap(response)
+      } catch (e) {
+        this.deploymentReadiness = { status: 'UNAVAILABLE', live_enabled: false }
       }
     },
     initEquityChart () {
