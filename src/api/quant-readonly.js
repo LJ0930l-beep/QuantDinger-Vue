@@ -79,3 +79,12 @@ export function getReadonlyTestnetRehearsal () {
     timeout: 8000
   })
 }
+
+/** Composed non-live research/release posture; read-only and fail-closed. */
+export function getReadonlyQuantOperations () {
+  return request({
+    url: '/api/quant/operations/readonly',
+    method: 'get',
+    timeout: 8000
+  })
+}
