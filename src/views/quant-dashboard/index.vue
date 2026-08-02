@@ -138,6 +138,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
+import { getReadonlyQuantState } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -146,6 +147,7 @@ export default {
   data () {
     return {
       dashboard: quantDashboardMock,
+      readonlyState: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -155,10 +157,12 @@ export default {
   computed: {
     statusItems () {
       const status = this.dashboard.status
+      const reconciliation = this.readonlyState && this.readonlyState.reconciliation
+      const derivedHealth = reconciliation && reconciliation.derived_health
       return [
         { label: '运行模式', value: status.environment, icon: 'experiment', tone: 'shadow' },
         { label: '实盘交易', value: status.liveTrading, icon: 'poweroff', tone: 'risk' },
-        { label: '对账状态', value: '健康', icon: 'safety-certificate', tone: 'healthy' },
+        { label: '对账状态', value: derivedHealth === 'HEALTHY' ? '健康' : (derivedHealth || '健康'), icon: 'safety-certificate', tone: derivedHealth === 'HEALTHY' ? 'healthy' : 'warning' },
         { label: '市场数据', value: '正常', icon: 'database', tone: 'healthy' },
         { label: '账户数据', value: '已核验', icon: 'check-circle', tone: 'healthy' }
       ]
@@ -186,12 +190,27 @@ export default {
       this._resizeChart = () => this.chartInstance && this.chartInstance.resize()
       window.addEventListener('resize', this._resizeChart)
     })
+    this.loadReadonlyState()
   },
   beforeDestroy () {
     window.removeEventListener('resize', this._resizeChart)
     if (this.chartInstance) this.chartInstance.dispose()
   },
   methods: {
+    async loadReadonlyState () {
+      try {
+        const response = await getReadonlyQuantState()
+        const body = response && response.data ? response.data : response
+        if (body && (body.status === 'READY' || body.status === 'STALE')) {
+          this.readonlyState = body
+          this.interactionNote = body.status === 'STALE'
+            ? '已连接只读投影 · 状态陈旧，继续显示安全摘要'
+            : '已连接只读投影 · 未启用任何交易写入路径'
+        }
+      } catch (e) {
+        // The mock remains the safe default when the provider is unavailable.
+      }
+    },
     initEquityChart () {
       const chart = this.dashboard.equityChart
       const numeric = values => values.map(value => Number(String(value).replace(/,/g, '')))
