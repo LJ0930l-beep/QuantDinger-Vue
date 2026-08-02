@@ -59,6 +59,44 @@
       </div>
     </section>
 
+    <section v-if="testnetExecutionConsole.visible" class="section-shell testnet-console-shell" aria-labelledby="testnet-console-heading">
+      <div class="section-heading compact-heading">
+        <div><span class="section-kicker">Gate TestNet</span><h2 id="testnet-console-heading">受控执行面板</h2></div>
+        <span class="read-only-badge"><a-icon type="lock" /> Live OFF · 仅 TestNet</span>
+      </div>
+      <div class="testnet-warning">
+        <a-icon type="warning" />
+        <span>这是可产生 TestNet 模拟成交的写入入口。必须由服务端显式开启闸门；前端不保存、不接收 API Key/Secret，也不能选择 Live。</span>
+      </div>
+      <div class="testnet-form-grid">
+        <label>Credential ID<input v-model.trim="testnetForm.credential_id" inputmode="numeric" placeholder="服务端已保存的凭证 ID" /></label>
+        <label>Account Scope<input v-model.trim="testnetForm.account_scope" placeholder="例如 gate-testnet" /></label>
+        <label>Instrument<input v-model.trim="testnetForm.instrument_id" placeholder="BTC_USDT" /></label>
+        <label>Market Type<select v-model="testnetForm.market_type"><option value="spot">Spot 现货</option><option value="perpetual">Perpetual 合约</option></select></label>
+        <label>Side<select v-model="testnetForm.side"><option value="BUY">BUY / 买入</option><option value="SELL">SELL / 卖出</option></select></label>
+        <label>Action<select v-model="testnetForm.action"><option value="OPEN">OPEN 开仓</option><option value="INCREASE">INCREASE 加仓</option><option value="REDUCE">REDUCE 减仓</option><option value="CLOSE">CLOSE 平仓</option></select></label>
+        <label>Execution<select v-model="testnetForm.execution_kind"><option value="MARKET">MARKET 市价</option><option value="LIMIT">LIMIT 限价</option></select></label>
+        <label>Quantity<input v-model.trim="testnetForm.quantity" inputmode="decimal" placeholder="Decimal 数量" /></label>
+        <label v-if="testnetForm.execution_kind === 'LIMIT'">Limit Price<input v-model.trim="testnetForm.limit_price" inputmode="decimal" placeholder="Decimal 价格" /></label>
+        <label>Reference Price<input v-model.trim="testnetForm.reference_price" inputmode="decimal" placeholder="用于市价与审计指纹" /></label>
+        <label v-if="['REDUCE', 'CLOSE'].includes(testnetForm.action)">Target Position ID<input v-model.trim="testnetForm.target_position_id" placeholder="必填：已持仓的规范 ID" /></label>
+        <label>Client Order ID（可选）<input v-model.trim="testnetForm.client_order_id" placeholder="不填则由后端确定性生成" /></label>
+      </div>
+      <div class="testnet-ack-row">
+        <label class="testnet-checkbox"><input v-model="testnetWriteAcknowledged" type="checkbox" /> 我确认这是 Gate TestNet，不是真实资金环境</label>
+        <input v-model.trim="testnetConfirmation" class="testnet-confirmation" placeholder="输入 TESTNET 以解锁" aria-label="TestNet 确认短语" />
+        <button type="button" class="ghost-action testnet-submit" :disabled="!testnetWriteUnlocked || testnetSubmitting" @click="submitTestnetOrder">{{ testnetSubmitting ? '提交中…' : '提交 TestNet 订单' }}</button>
+      </div>
+      <div v-if="testnetReceipt" class="admission-evidence execution-evidence" data-testid="testnet-order-receipt">
+        <span class="admission-label">TestNet 回执</span>
+        <strong :class="testnetReceipt.status === 'REJECTED' ? 'risk' : 'healthy'">{{ testnetReceipt.status }}</strong>
+        <span>{{ testnetReceipt.order && testnetReceipt.order.market_type }}</span>
+        <span>{{ testnetReceipt.order && testnetReceipt.order.instrument_id }}</span>
+        <span>订单 {{ testnetReceipt.order && (testnetReceipt.order.exchange_order_id || testnetReceipt.order.client_order_id) }}</span>
+        <span class="purple">Live OFF · 不含敏感凭证</span>
+      </div>
+    </section>
+
     <section class="section-shell overview-shell" aria-labelledby="overview-heading">
       <div class="section-heading compact-heading">
         <div><span class="section-kicker">账户总览</span><h2 id="overview-heading">核心资金指标</h2></div>
@@ -213,7 +251,7 @@ import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getGateTestnetEnvironmentAccount, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
+import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -244,6 +282,23 @@ export default {
       readonlyGateMarket: null,
       productRehearsal: null,
       gateTestnetExecution: null,
+      testnetForm: {
+        credential_id: '',
+        account_scope: '',
+        instrument_id: 'BTC_USDT',
+        market_type: 'spot',
+        side: 'BUY',
+        action: 'OPEN',
+        execution_kind: 'MARKET',
+        quantity: '',
+        limit_price: '',
+        reference_price: '',
+        client_order_id: ''
+      },
+      testnetWriteAcknowledged: false,
+      testnetConfirmation: '',
+      testnetSubmitting: false,
+      testnetReceipt: null,
       expanded: false,
       signalFilterOn: false,
       interactionNote: '静态模拟数据 · 未连接实盘',
@@ -346,6 +401,13 @@ export default {
         { key: 'canary', label: gate.canary.label, status: gate.canary.status, statusTone: 'warning', tone: 'canary', note: gate.canary.note },
         { key: 'live', label: gate.live.label, status: gate.live.status, statusTone: 'risk', tone: 'live', note: gate.live.note }
       ]
+    },
+    testnetExecutionConsole () {
+      const query = (this.$route && this.$route.query) || {}
+      return { visible: query.gate_testnet_write === '1' }
+    },
+    testnetWriteUnlocked () {
+      return this.testnetWriteAcknowledged && this.testnetConfirmation === 'TESTNET' && !this.testnetSubmitting
     }
   },
   mounted () {
@@ -374,6 +436,32 @@ export default {
         }
       } catch (e) {
         // The mock remains the safe default when the provider is unavailable.
+      }
+    },
+    async submitTestnetOrder () {
+      if (!this.testnetWriteUnlocked) return
+      this.testnetSubmitting = true
+      this.testnetReceipt = null
+      try {
+        const reducing = ['REDUCE', 'CLOSE'].includes(this.testnetForm.action)
+        const payload = { ...this.testnetForm, mode: 'PAPER', source: 'REST', position_side: 'NET', quantity_semantics: 'ABSOLUTE', reduce_only: reducing, close_all: false, actor_id: 'frontend-testnet', reference_price: this.testnetForm.reference_price, correlation_id: `frontend-testnet-${Date.now()}`, occurred_at: new Date().toISOString(), idempotency_key: `frontend-testnet-${Date.now()}` }
+        if (reducing) {
+          payload.close_quantity = payload.quantity
+          delete payload.quantity
+          delete payload.quantity_semantics
+        }
+        if (!payload.limit_price) delete payload.limit_price
+        if (!payload.client_order_id) delete payload.client_order_id
+        if (!payload.target_position_id) delete payload.target_position_id
+        const response = await submitGateTestnetOrder(payload)
+        this.testnetReceipt = response && response.data ? response.data : response
+        this.interactionNote = 'TestNet 订单已返回类型化回执；Live 仍保持关闭'
+      } catch (error) {
+        const response = error && error.response && error.response.data
+        this.testnetReceipt = response || { status: 'REJECTED', live_enabled: false }
+        this.interactionNote = 'TestNet 订单被服务端闸门拒绝或暂不可用'
+      } finally {
+        this.testnetSubmitting = false
       }
     },
     async loadReadonlyResearchState () {
@@ -687,6 +775,7 @@ h1, h2, h3, p { margin: 0; } h1, h2, h3 { color: var(--text) !important; } h1 { 
 .status-bar { display: grid; grid-template-columns: repeat(5, minmax(128px, 1fr)) minmax(260px, 1.4fr); gap: 1px; overflow-x: auto; margin-bottom: 14px; padding: 1px; border: 1px solid var(--line); background: var(--line); }.status-item { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; min-width: 0; padding: 9px 11px; background: var(--surface); }.status-item .anticon { grid-row: span 2; align-self: center; }.status-item span { color: var(--muted); font-size: 10px; }.status-item strong { font-size: 12px; }.status-item.timestamp { grid-template-columns: auto auto 1fr; align-items: center; }.status-item.timestamp .anticon { grid-row: auto; }.status-item.timestamp strong { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }.healthy { color: var(--green) !important; }.risk { color: var(--red) !important; }.warning { color: var(--orange) !important; }.shadow, .purple { color: var(--purple) !important; }.cyan { color: var(--cyan) !important; }.neutral { color: var(--text) !important; }
 .section-shell { margin-bottom: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: linear-gradient(145deg, rgba(23, 35, 48, .96), rgba(13, 22, 30, .96)); box-shadow: 0 16px 45px rgba(0, 0, 0, .14); }.section-heading { justify-content: space-between; gap: 16px; margin-bottom: 14px; }.compact-heading { margin-bottom: 12px; }.section-kicker { color: var(--cyan); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
 .environment-grid { display: grid; grid-template-columns: 1.25fr repeat(3, minmax(210px, 1fr)); gap: 9px; }.environment-card { min-width: 0; padding: 13px; border: 1px solid var(--line); background: rgba(7, 14, 20, .48); }.environment-card.current { border-color: rgba(57, 198, 223, .55); background: linear-gradient(145deg, rgba(57, 198, 223, .1), rgba(7, 14, 20, .45)); }.environment-card.testnet { border-color: rgba(82, 201, 140, .38); }.environment-card.canary { border-color: rgba(244, 162, 97, .35); }.environment-card.live { border-color: rgba(236, 111, 115, .4); }.environment-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11px; }.environment-card-head strong { font-size: 12px; letter-spacing: .4px; }.environment-card p { min-height: 34px; margin: 10px 0; color: #b9c8d3; font-size: 11px; line-height: 1.5; }.ghost-action { padding: 0; border: 0; color: #94bcca; background: transparent; font-size: 11px; cursor: pointer; }.ghost-action:hover, .ghost-action:focus { color: var(--cyan); outline: none; }
+.testnet-console-shell { border-color: rgba(82, 201, 140, .38); }.testnet-warning { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 12px; padding: 10px 12px; border: 1px solid rgba(244, 162, 97, .36); background: rgba(244, 162, 97, .06); color: #f5c798; font-size: 11px; line-height: 1.5; }.testnet-warning .anticon { margin-top: 2px; color: var(--orange); }.testnet-form-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 10px; }.testnet-form-grid label { display: grid; gap: 5px; color: var(--muted); font-size: 10px; }.testnet-form-grid input, .testnet-form-grid select, .testnet-confirmation { width: 100%; min-height: 31px; box-sizing: border-box; padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; outline: none; color: var(--text); background: rgba(7, 14, 20, .7); font: inherit; }.testnet-form-grid input:focus, .testnet-form-grid select:focus, .testnet-confirmation:focus { border-color: var(--cyan); }.testnet-ack-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }.testnet-checkbox { display: inline-flex; align-items: center; gap: 6px; color: #c7d8e1; font-size: 11px; }.testnet-checkbox input { accent-color: var(--cyan); }.testnet-confirmation { width: 150px; }.testnet-submit { min-height: 31px; padding: 0 12px; border: 1px solid rgba(57, 198, 223, .46); border-radius: 5px; }.testnet-submit:disabled { cursor: not-allowed; opacity: .4; }
 .metric-grid { display: grid; grid-template-columns: minmax(240px, 1.28fr) repeat(3, minmax(170px, 1fr)); gap: 9px; }.metric-card { min-width: 0; padding: 13px; border: 1px solid var(--line); background: rgba(7, 14, 20, .45); }.metric-card:first-child { border-color: rgba(57, 198, 223, .55); background: linear-gradient(145deg, rgba(57, 198, 223, .11), rgba(7, 14, 20, .45)); }.metric-card.healthy strong { color: var(--green); }.metric-card.warning strong { color: var(--orange); }.metric-card span, .metric-card small { display: block; color: var(--muted); font-size: 11px; }.metric-card strong { display: block; margin: 7px 0 5px; font-size: 18px; white-space: nowrap; font-variant-numeric: tabular-nums; }.metric-card:first-child strong { color: var(--cyan); font-size: 22px; }
 .dashboard-grid { display: grid; gap: 14px; }.performance-risk-grid { grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); }.chart-shell { min-height: 300px; }.equity-chart { width: 100%; height: 230px; }.chart-footer { justify-content: flex-start; gap: 16px; padding-top: 3px; color: var(--muted); font-size: 11px; }.chart-footer strong { margin-left: auto; color: var(--purple); font-size: 11px; }.legend-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; }.legend-dot.equity { background: var(--cyan); }.legend-dot.pnl { background: var(--green); }
 .risk-summary-shell { background: linear-gradient(145deg, rgba(23, 35, 48, .96), rgba(17, 22, 30, .98)); }.summary-list { display: grid; gap: 1px; margin: 0; border: 1px solid var(--line); background: var(--line); }.summary-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px; background: rgba(7, 14, 20, .48); }.summary-list dt { color: var(--muted); font-size: 11px; }.summary-list dd { margin: 0; text-align: right; }.summary-list strong, .summary-list small { display: block; }.summary-list strong { font-size: 13px; }.summary-list small { margin-top: 3px; color: var(--muted); font-size: 10px; }.risk-callout { display: flex; gap: 8px; margin-top: 12px; padding: 10px; border: 1px solid rgba(82, 201, 140, .28); background: rgba(82, 201, 140, .06); color: #b6dbc8; font-size: 11px; line-height: 1.5; }.risk-callout .anticon { margin-top: 2px; color: var(--green); }
@@ -695,6 +784,6 @@ h1, h2, h3, p { margin: 0; } h1, h2, h3 { color: var(--text) !important; } h1 { 
 .signals-risk-grid { grid-template-columns: minmax(0, 1.7fr) minmax(300px, .8fr); }.health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.risk-list, .detail-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }.risk-list > div, .detail-list > div { padding: 12px; background: rgba(7, 14, 20, .55); }.risk-list small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 .pipeline { align-items: stretch; gap: 8px; overflow-x: auto; padding-bottom: 4px; }.pipeline-step { flex: 1 0 156px; position: relative; padding: 14px; border: 1px solid var(--line); background: rgba(7, 14, 20, .42); }.pipeline-step.green { box-shadow: inset 0 2px var(--green); }.pipeline-step.orange { box-shadow: inset 0 2px var(--orange); }.pipeline-step.purple { box-shadow: inset 0 2px var(--purple); }.pipeline-step.cyan { box-shadow: inset 0 2px var(--cyan); }.pipeline-index { color: var(--muted); font-size: 11px; }.pipeline-step h3 { margin: 10px 0 6px; }.pipeline-step p { min-height: 28px; color: var(--muted); font-size: 11px; }.pipeline-step strong { color: var(--cyan); font-size: 11px; }.pipeline-arrow { align-self: center; color: var(--muted); font-size: 22px; }.pipeline-cases { gap: 12px; flex-wrap: wrap; margin-top: 16px; color: var(--muted); font-size: 12px; }.pipeline-cases strong { font-size: 11px; }.admission-evidence { gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border: 1px solid rgba(57, 198, 223, .28); background: rgba(57, 198, 223, .04); color: var(--muted); font-size: 11px; }.admission-evidence .admission-label { color: var(--cyan); font-weight: 700; }.admission-evidence strong { font-size: 11px; }
 .timeline { position: relative; margin: 0; padding: 0 0 0 8px; list-style: none; }.timeline::before { position: absolute; top: 10px; bottom: 10px; left: 12px; width: 1px; background: var(--line); content: ''; }.timeline li { position: relative; display: grid; grid-template-columns: 90px 185px 1fr; gap: 12px; align-items: baseline; padding: 9px 0 9px 27px; }.timeline-dot { position: absolute; top: 15px; left: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 4px var(--surface-2); }.timeline-dot.green { background: var(--green); }.timeline-dot.orange { background: var(--orange); }.timeline-dot.purple { background: var(--purple); }.timeline-dot.risk { background: var(--red); }.timeline time { color: var(--muted); font-size: 11px; }.timeline strong { font-size: 12px; }.timeline p { color: #b9c8d3; font-size: 12px; }
-@media (max-width: 1220px) { .status-bar { grid-template-columns: repeat(3, minmax(150px, 1fr)); }.status-item.timestamp { grid-column: span 2; }.metric-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }.environment-grid { grid-template-columns: repeat(2, minmax(210px, 1fr)); }.performance-risk-grid, .signals-risk-grid, .health-grid { grid-template-columns: 1fr; }.strategy-grid { grid-template-columns: repeat(2, minmax(245px, 1fr)); } }
-@media (max-width: 760px) { .quant-dashboard { padding: 14px; }.dashboard-header { align-items: flex-start; flex-direction: column; }.header-actions { justify-content: flex-start; }.status-bar { grid-template-columns: repeat(2, minmax(145px, 1fr)); }.status-item.timestamp { grid-column: span 2; }.metric-grid, .environment-grid { grid-template-columns: 1fr; }.strategy-grid { grid-template-columns: 1fr; }.risk-list, .detail-list { grid-template-columns: 1fr; }.timeline li { grid-template-columns: 70px 1fr; }.timeline p { grid-column: 2; }.pipeline-arrow { display: none; }.chart-footer { flex-wrap: wrap; }.chart-footer strong { width: 100%; margin-left: 0; } }
+@media (max-width: 1220px) { .status-bar { grid-template-columns: repeat(3, minmax(150px, 1fr)); }.status-item.timestamp { grid-column: span 2; }.metric-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }.environment-grid { grid-template-columns: repeat(2, minmax(210px, 1fr)); }.testnet-form-grid { grid-template-columns: repeat(3, minmax(180px, 1fr)); }.performance-risk-grid, .signals-risk-grid, .health-grid { grid-template-columns: 1fr; }.strategy-grid { grid-template-columns: repeat(2, minmax(245px, 1fr)); } }
+@media (max-width: 760px) { .quant-dashboard { padding: 14px; }.dashboard-header { align-items: flex-start; flex-direction: column; }.header-actions { justify-content: flex-start; }.status-bar { grid-template-columns: repeat(2, minmax(145px, 1fr)); }.status-item.timestamp { grid-column: span 2; }.metric-grid, .environment-grid, .testnet-form-grid { grid-template-columns: 1fr; }.strategy-grid { grid-template-columns: 1fr; }.risk-list, .detail-list { grid-template-columns: 1fr; }.timeline li { grid-template-columns: 70px 1fr; }.timeline p { grid-column: 2; }.pipeline-arrow { display: none; }.chart-footer { flex-wrap: wrap; }.chart-footer strong { width: 100%; margin-left: 0; } }
 </style>

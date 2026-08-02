@@ -94,6 +94,20 @@ export function getGateTestnetEnvironmentAccount (scope = {}) {
   })
 }
 
+/**
+ * Explicit Gate TestNet write. The server still requires the operator-side
+ * write flag and authenticated credential; the browser never receives a key
+ * or secret and cannot select LIVE.
+ */
+export function submitGateTestnetOrder (payload = {}) {
+  return request({
+    url: '/api/quant/gate/testnet/order',
+    method: 'post',
+    data: payload,
+    timeout: 20000
+  })
+}
+
 /** Explicit public Gate TestNet market evidence; unavailable unless enabled by the API operator. */
 export function getReadonlyGateMarket (scope = {}) {
   return request({

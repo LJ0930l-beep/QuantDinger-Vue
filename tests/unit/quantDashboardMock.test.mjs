@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { quantDashboardMock } from '../../src/mocks/quantDashboard.js'
 
 test('quant dashboard mock is visibly non-live and complete enough for the read-only prototype', () => {
@@ -20,4 +21,13 @@ test('quant dashboard mock is visibly non-live and complete enough for the read-
 test('mock amounts and quantities are presentation strings rather than binary floating-point values', () => {
   for (const item of quantDashboardMock.account) assert.equal(typeof item.value, 'string')
   for (const position of quantDashboardMock.positions) assert.equal(typeof position.quantity, 'string')
+})
+
+test('frontend TestNet write surface is explicitly gated and never exposes LIVE', () => {
+  const view = readFileSync(new URL('../../src/views/quant-dashboard/index.vue', import.meta.url), 'utf8')
+  assert.match(view, /gate_testnet_write === '1'/)
+  assert.match(view, /testnetConfirmation === 'TESTNET'/)
+  assert.match(view, /submitGateTestnetOrder/)
+  assert.doesNotMatch(view, /AGENT_LIVE_TRADING_ENABLED\s*=\s*['"]1['"]/)
+  assert.match(view, /Live OFF/)
 })
