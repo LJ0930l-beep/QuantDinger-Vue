@@ -40,6 +40,26 @@
       <div class="status-item timestamp"><a-icon type="clock-circle" /><span>最后更新</span><strong>{{ dashboard.status.lastUpdated }}</strong></div>
     </section>
 
+    <section class="section-shell gate-account-shell" aria-labelledby="gate-account-heading">
+      <div class="section-heading compact-heading">
+        <div><span class="section-kicker">Gate TestNet</span><h2 id="gate-account-heading">账户只读连接</h2></div>
+        <span class="read-only-badge"><a-icon type="lock" /> 后端凭证 · Live OFF</span>
+      </div>
+      <div class="gate-account-controls">
+        <label>Account Scope<input v-model.trim="gateAccountForm.account_scope" placeholder="例如 gate-testnet" autocomplete="off" /></label>
+        <label>Market Type<select v-model="gateAccountForm.market_type"><option value="spot">Spot</option><option value="perpetual">Perpetual</option></select></label>
+        <label>Instrument<input v-model.trim="gateAccountForm.instrument_id" placeholder="例如 BTC_USDT" autocomplete="off" /></label>
+        <button type="button" class="ghost-action" :disabled="gateAccountLoading || !gateAccountForm.account_scope" @click="connectGateTestnetAccount">
+          {{ gateAccountLoading ? '读取中…' : '连接 TestNet 只读账户' }}
+        </button>
+      </div>
+      <div class="gate-account-evidence" :class="gateAccountEvidenceTone" data-testid="gate-account-evidence">
+        <strong>{{ gateAccountEvidenceTitle }}</strong>
+        <span>{{ gateAccountEvidenceDetail }}</span>
+        <span v-if="gateTestnetEnvironmentAccount && gateTestnetEnvironmentAccount.status === 'READY'">余额、持仓与 PnL 已从后端快照刷新</span>
+      </div>
+    </section>
+
     <section class="section-shell environment-shell" aria-labelledby="environment-heading">
       <div class="section-heading compact-heading">
         <div><span class="section-kicker">运行环境</span><h2 id="environment-heading">环境与实盘闸门</h2></div>
@@ -285,6 +305,9 @@ export default {
       deploymentReadiness: null,
       readonlyGateAccount: null,
       gateTestnetEnvironmentAccount: null,
+      gateAccountForm: { account_scope: '', market_type: 'spot', instrument_id: 'BTC_USDT' },
+      gateAccountLoading: false,
+      gateAccountError: '',
       readonlyGateMarket: null,
       productRehearsal: null,
       gateTestnetExecution: null,
@@ -315,6 +338,21 @@ export default {
     }
   },
   computed: {
+    gateAccountEvidenceTitle () {
+      if (this.gateTestnetEnvironmentAccount && this.gateTestnetEnvironmentAccount.status === 'READY') return 'TESTNET · READ ONLY · READY'
+      if (this.gateAccountLoading) return 'TESTNET · READING'
+      return 'TESTNET · NOT CONNECTED'
+    },
+    gateAccountEvidenceDetail () {
+      if (this.gateAccountError) return this.gateAccountError
+      if (this.gateTestnetEnvironmentAccount && this.gateTestnetEnvironmentAccount.status === 'READY') return `scope=${this.gateAccountForm.account_scope} · ${this.gateAccountForm.market_type}`
+      return '凭证仅在后端环境中读取；前端不接收 Key/Secret'
+    },
+    gateAccountEvidenceTone () {
+      if (this.gateTestnetEnvironmentAccount && this.gateTestnetEnvironmentAccount.status === 'READY') return 'healthy'
+      if (this.gateAccountError) return 'warning'
+      return 'neutral'
+    },
     researchStatus () {
       return {
         backtest: this.readonlyBacktest && this.readonlyBacktest.status ? this.readonlyBacktest.status : 'UNAVAILABLE',
@@ -700,6 +738,28 @@ export default {
         this.gateTestnetEnvironmentAccount = null
       }
     },
+    async connectGateTestnetAccount () {
+      this.gateAccountLoading = true
+      this.gateAccountError = ''
+      try {
+        const response = await getGateTestnetEnvironmentAccount({
+          market_type: this.gateAccountForm.market_type,
+          account_scope: this.gateAccountForm.account_scope,
+          instrument_id: this.gateAccountForm.instrument_id
+        })
+        const body = response && response.data ? response.data : response
+        if (!body || body.status !== 'READY' || body.environment !== 'TESTNET' || body.live_enabled !== false) {
+          throw new Error('Gate TestNet 只读账户不可用')
+        }
+        this.gateTestnetEnvironmentAccount = body
+        this.interactionNote = '已刷新 Gate TestNet 真实账户只读快照；未启用下单或 Live'
+      } catch (e) {
+        this.gateTestnetEnvironmentAccount = null
+        this.gateAccountError = '读取失败：请确认后端 TestNet 只读开关、登录状态和账户范围'
+      } finally {
+        this.gateAccountLoading = false
+      }
+    },
     async loadReadonlyGateMarket () {
       const query = (this.$route && this.$route.query) || {}
       if (!query.gate_market || !query.instrument_id) return
@@ -848,6 +908,7 @@ h1, h2, h3, p { margin: 0; } h1, h2, h3 { color: var(--text) !important; } h1 { 
 .environment-grid { display: grid; grid-template-columns: 1.25fr repeat(3, minmax(210px, 1fr)); gap: 9px; }.environment-card { min-width: 0; padding: 13px; border: 1px solid var(--line); background: rgba(7, 14, 20, .48); }.environment-card.current { border-color: rgba(57, 198, 223, .55); background: linear-gradient(145deg, rgba(57, 198, 223, .1), rgba(7, 14, 20, .45)); }.environment-card.testnet { border-color: rgba(82, 201, 140, .38); }.environment-card.canary { border-color: rgba(244, 162, 97, .35); }.environment-card.live { border-color: rgba(236, 111, 115, .4); }.environment-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11px; }.environment-card-head strong { font-size: 12px; letter-spacing: .4px; }.environment-card p { min-height: 34px; margin: 10px 0; color: #b9c8d3; font-size: 11px; line-height: 1.5; }.ghost-action { padding: 0; border: 0; color: #94bcca; background: transparent; font-size: 11px; cursor: pointer; }.ghost-action:hover, .ghost-action:focus { color: var(--cyan); outline: none; }
 .testnet-cancel-row { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(38, 56, 71, .7); }.testnet-cancel-row label { display: grid; gap: 5px; min-width: 220px; color: var(--muted); font-size: 10px; }.testnet-cancel-row input { min-height: 31px; box-sizing: border-box; padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; outline: none; color: var(--text); background: rgba(7, 14, 20, .7); font: inherit; }.testnet-cancel-row input:focus { border-color: var(--cyan); }
 .metric-grid { display: grid; grid-template-columns: minmax(240px, 1.28fr) repeat(3, minmax(170px, 1fr)); gap: 9px; }.metric-card { min-width: 0; padding: 13px; border: 1px solid var(--line); background: rgba(7, 14, 20, .45); }.metric-card:first-child { border-color: rgba(57, 198, 223, .55); background: linear-gradient(145deg, rgba(57, 198, 223, .11), rgba(7, 14, 20, .45)); }.metric-card.healthy strong { color: var(--green); }.metric-card.warning strong { color: var(--orange); }.metric-card span, .metric-card small { display: block; color: var(--muted); font-size: 11px; }.metric-card strong { display: block; margin: 7px 0 5px; font-size: 18px; white-space: nowrap; font-variant-numeric: tabular-nums; }.metric-card:first-child strong { color: var(--cyan); font-size: 22px; }
+.gate-account-controls { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(140px, .7fr) minmax(180px, 1fr) auto; gap: 10px; align-items: end; }.gate-account-controls label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; }.gate-account-controls input, .gate-account-controls select { width: 100%; min-height: 32px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--text); padding: 0 9px; }.gate-account-controls input:focus, .gate-account-controls select:focus { border-color: var(--cyan); outline: none; }.gate-account-evidence { display: flex; align-items: center; gap: 12px; margin-top: 10px; min-height: 30px; padding: 7px 10px; border-radius: 6px; background: var(--surface-2); color: var(--muted); font-size: 11px; }.gate-account-evidence strong { color: var(--text); letter-spacing: .04em; }.gate-account-evidence.healthy strong { color: var(--green); }.gate-account-evidence.warning strong { color: var(--orange); }.gate-account-evidence.neutral strong { color: var(--cyan); }
 .dashboard-grid { display: grid; gap: 14px; }.performance-risk-grid { grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); }.chart-shell { min-height: 300px; }.equity-chart { width: 100%; height: 230px; }.chart-footer { justify-content: flex-start; gap: 16px; padding-top: 3px; color: var(--muted); font-size: 11px; }.chart-footer strong { margin-left: auto; color: var(--purple); font-size: 11px; }.legend-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; }.legend-dot.equity { background: var(--cyan); }.legend-dot.pnl { background: var(--green); }
 .risk-summary-shell { background: linear-gradient(145deg, rgba(23, 35, 48, .96), rgba(17, 22, 30, .98)); }.summary-list { display: grid; gap: 1px; margin: 0; border: 1px solid var(--line); background: var(--line); }.summary-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px; background: rgba(7, 14, 20, .48); }.summary-list dt { color: var(--muted); font-size: 11px; }.summary-list dd { margin: 0; text-align: right; }.summary-list strong, .summary-list small { display: block; }.summary-list strong { font-size: 13px; }.summary-list small { margin-top: 3px; color: var(--muted); font-size: 10px; }.risk-callout { display: flex; gap: 8px; margin-top: 12px; padding: 10px; border: 1px solid rgba(82, 201, 140, .28); background: rgba(82, 201, 140, .06); color: #b6dbc8; font-size: 11px; line-height: 1.5; }.risk-callout .anticon { margin-top: 2px; color: var(--green); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); }.terminal-table { width: 100%; min-width: 1110px; border-collapse: collapse; font-size: 12px; }.terminal-table th { padding: 10px 12px; color: #a9bbc9; text-align: left; background: rgba(5, 11, 16, .65); font-size: 10px; letter-spacing: .6px; text-transform: uppercase; }.terminal-table td { padding: 10px 12px; border-top: 1px solid rgba(38, 56, 71, .7); white-space: nowrap; }.terminal-table tr:hover td { background: rgba(57, 198, 223, .045); }.pill.long { color: var(--green); }.pill.short { color: var(--orange); } code { color: var(--cyan); font-size: 11px; }
@@ -855,6 +916,6 @@ h1, h2, h3, p { margin: 0; } h1, h2, h3 { color: var(--text) !important; } h1 { 
 .signals-risk-grid { grid-template-columns: minmax(0, 1.7fr) minmax(300px, .8fr); }.health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.risk-list, .detail-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }.risk-list > div, .detail-list > div { padding: 12px; background: rgba(7, 14, 20, .55); }.risk-list small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 .pipeline { align-items: stretch; gap: 8px; overflow-x: auto; padding-bottom: 4px; }.pipeline-step { flex: 1 0 156px; position: relative; padding: 14px; border: 1px solid var(--line); background: rgba(7, 14, 20, .42); }.pipeline-step.green { box-shadow: inset 0 2px var(--green); }.pipeline-step.orange { box-shadow: inset 0 2px var(--orange); }.pipeline-step.purple { box-shadow: inset 0 2px var(--purple); }.pipeline-step.cyan { box-shadow: inset 0 2px var(--cyan); }.pipeline-index { color: var(--muted); font-size: 11px; }.pipeline-step h3 { margin: 10px 0 6px; }.pipeline-step p { min-height: 28px; color: var(--muted); font-size: 11px; }.pipeline-step strong { color: var(--cyan); font-size: 11px; }.pipeline-arrow { align-self: center; color: var(--muted); font-size: 22px; }.pipeline-cases { gap: 12px; flex-wrap: wrap; margin-top: 16px; color: var(--muted); font-size: 12px; }.pipeline-cases strong { font-size: 11px; }.admission-evidence { gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border: 1px solid rgba(57, 198, 223, .28); background: rgba(57, 198, 223, .04); color: var(--muted); font-size: 11px; }.admission-evidence .admission-label { color: var(--cyan); font-weight: 700; }.admission-evidence strong { font-size: 11px; }
 .timeline { position: relative; margin: 0; padding: 0 0 0 8px; list-style: none; }.timeline::before { position: absolute; top: 10px; bottom: 10px; left: 12px; width: 1px; background: var(--line); content: ''; }.timeline li { position: relative; display: grid; grid-template-columns: 90px 185px 1fr; gap: 12px; align-items: baseline; padding: 9px 0 9px 27px; }.timeline-dot { position: absolute; top: 15px; left: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 4px var(--surface-2); }.timeline-dot.green { background: var(--green); }.timeline-dot.orange { background: var(--orange); }.timeline-dot.purple { background: var(--purple); }.timeline-dot.risk { background: var(--red); }.timeline time { color: var(--muted); font-size: 11px; }.timeline strong { font-size: 12px; }.timeline p { color: #b9c8d3; font-size: 12px; }
-@media (max-width: 1220px) { .status-bar { grid-template-columns: repeat(3, minmax(150px, 1fr)); }.status-item.timestamp { grid-column: span 2; }.metric-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }.environment-grid { grid-template-columns: repeat(2, minmax(210px, 1fr)); }.testnet-form-grid { grid-template-columns: repeat(3, minmax(180px, 1fr)); }.performance-risk-grid, .signals-risk-grid, .health-grid { grid-template-columns: 1fr; }.strategy-grid { grid-template-columns: repeat(2, minmax(245px, 1fr)); } }
-@media (max-width: 760px) { .quant-dashboard { padding: 14px; }.dashboard-header { align-items: flex-start; flex-direction: column; }.header-actions { justify-content: flex-start; }.status-bar { grid-template-columns: repeat(2, minmax(145px, 1fr)); }.status-item.timestamp { grid-column: span 2; }.metric-grid, .environment-grid, .testnet-form-grid { grid-template-columns: 1fr; }.strategy-grid { grid-template-columns: 1fr; }.risk-list, .detail-list { grid-template-columns: 1fr; }.timeline li { grid-template-columns: 70px 1fr; }.timeline p { grid-column: 2; }.pipeline-arrow { display: none; }.chart-footer { flex-wrap: wrap; }.chart-footer strong { width: 100%; margin-left: 0; } }
+@media (max-width: 1220px) { .status-bar { grid-template-columns: repeat(3, minmax(150px, 1fr)); }.status-item.timestamp { grid-column: span 2; }.metric-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }.environment-grid { grid-template-columns: repeat(2, minmax(210px, 1fr)); }.testnet-form-grid { grid-template-columns: repeat(3, minmax(180px, 1fr)); }.gate-account-controls { grid-template-columns: repeat(2, minmax(180px, 1fr)); }.performance-risk-grid, .signals-risk-grid, .health-grid { grid-template-columns: 1fr; }.strategy-grid { grid-template-columns: repeat(2, minmax(245px, 1fr)); } }
+@media (max-width: 760px) { .quant-dashboard { padding: 14px; }.dashboard-header { align-items: flex-start; flex-direction: column; }.header-actions { justify-content: flex-start; }.status-bar { grid-template-columns: repeat(2, minmax(145px, 1fr)); }.status-item.timestamp { grid-column: span 2; }.metric-grid, .environment-grid, .testnet-form-grid, .gate-account-controls { grid-template-columns: 1fr; }.strategy-grid { grid-template-columns: 1fr; }.risk-list, .detail-list { grid-template-columns: 1fr; }.timeline li { grid-template-columns: 70px 1fr; }.timeline p { grid-column: 2; }.pipeline-arrow { display: none; }.chart-footer { flex-wrap: wrap; }.chart-footer strong { width: 100%; margin-left: 0; } }
 </style>
