@@ -179,6 +179,25 @@
       </div>
     </section>
 
+    <section v-if="accountOrders.length || accountFills.length" class="dashboard-grid signals-risk-grid" aria-label="Gate account order and fill facts">
+      <article class="section-shell signal-panel" aria-labelledby="account-orders-heading">
+        <div class="section-heading"><div><span class="section-kicker">Gate TestNet</span><h2 id="account-orders-heading">账户订单事实</h2></div><span class="read-only-badge"><a-icon type="lock" /> 只读快照</span></div>
+        <div class="table-wrap compact" tabindex="0">
+          <table class="terminal-table"><thead><tr><th>标的</th><th>方向</th><th>状态</th><th>订单 ID</th><th>数量</th><th>已成交</th><th>均价</th></tr></thead>
+            <tbody><tr v-for="order in accountOrders" :key="order.exchange_order_id || order.client_order_id"><td>{{ order.instrument_id }}</td><td>{{ order.side }}</td><td><span class="text-status" :class="orderStatusTone(order.status)">{{ order.status }}</span></td><td><code>{{ order.exchange_order_id || order.client_order_id || '—' }}</code></td><td>{{ order.quantity }}</td><td>{{ order.filled_quantity }}</td><td>{{ order.average_fill_price || '—' }}</td></tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="section-shell risk-panel" aria-labelledby="account-fills-heading">
+        <div class="section-heading"><div><span class="section-kicker">Gate TestNet</span><h2 id="account-fills-heading">最近成交事实</h2></div><span class="read-only-badge"><a-icon type="lock" /> 只读快照</span></div>
+        <div class="table-wrap compact" tabindex="0">
+          <table class="terminal-table"><thead><tr><th>标的</th><th>成交 ID</th><th>数量</th><th>价格</th><th>手续费</th></tr></thead>
+            <tbody><tr v-for="fill in accountFills" :key="fill.venue_fill_id"><td>{{ fill.instrument_id }}</td><td><code>{{ fill.venue_fill_id }}</code></td><td>{{ fill.quantity }}</td><td>{{ fill.price }}</td><td>{{ fill.fee_amount || '0' }} {{ fill.fee_asset || '' }}</td></tr></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
     <section class="section-shell" aria-labelledby="strategy-heading">
       <div class="section-heading"><div><span class="section-kicker">策略工厂</span><h2 id="strategy-heading">策略卡片</h2></div><span class="mock-copy">仅用于视觉占位</span></div>
       <div class="strategy-grid">
@@ -452,6 +471,18 @@ export default {
         risk: '已核验',
         protection: '只读'
       }))
+    },
+    accountOrders () {
+      const persisted = this.gateTestnetEnvironmentAccount || this.readonlyGateAccount
+      return persisted && persisted.status === 'READY' && Array.isArray(persisted.orders)
+        ? persisted.orders
+        : []
+    },
+    accountFills () {
+      const persisted = this.gateTestnetEnvironmentAccount || this.readonlyGateAccount
+      return persisted && persisted.status === 'READY' && Array.isArray(persisted.fills)
+        ? persisted.fills
+        : []
     },
     visibleSignals () {
       return this.signalFilterOn
@@ -923,6 +954,12 @@ export default {
       if (status === 'RISK_REJECTED') return 'risk'
       if (status === 'REPLAYED') return 'purple'
       return 'healthy'
+    },
+    orderStatusTone (value) {
+      const status = String(value || '').toUpperCase()
+      if (['FILLED', 'OPEN', 'PARTIALLY_FILLED'].includes(status)) return 'healthy'
+      if (['CANCELLED', 'REJECTED', 'FAILED'].includes(status)) return 'risk'
+      return 'warning'
     }
   }
 }
