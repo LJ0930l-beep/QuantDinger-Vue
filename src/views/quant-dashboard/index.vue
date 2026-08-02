@@ -126,6 +126,10 @@
         <span>{{ testnetReceipt.order && testnetReceipt.order.market_type }}</span>
         <span>{{ testnetReceipt.order && testnetReceipt.order.instrument_id }}</span>
         <span>订单 {{ testnetReceipt.order && (testnetReceipt.order.exchange_order_id || testnetReceipt.order.client_order_id) }}</span>
+        <span v-if="testnetReceipt.admission && testnetReceipt.admission.economic_order_id">经济订单 {{ testnetReceipt.admission.economic_order_id }}</span>
+        <span v-if="testnetReceipt.admission && testnetReceipt.admission.risk_decision_id">Risk {{ testnetReceipt.admission.risk_decision_id }}</span>
+        <span v-if="testnetReceipt.admission && testnetReceipt.admission.reservation_id">Reservation {{ testnetReceipt.admission.reservation_id }}</span>
+        <span v-if="testnetReceipt.admission && testnetReceipt.admission.outbox_event_id">Outbox {{ testnetReceipt.admission.outbox_event_id }}</span>
         <span class="purple">Live OFF · 不含敏感凭证</span>
       </div>
     </section>
