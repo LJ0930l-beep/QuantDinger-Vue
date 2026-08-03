@@ -293,9 +293,10 @@ export default {
       return this.selectedExchangeId === 'gate' ? 'testnet' : 'live'
     },
     defaultMarketScope () {
-      // A newly created Gate key commonly starts with spot read permission.
-      // Require an explicit choice before probing perpetual permissions.
-      return this.selectedExchangeId === 'gate' ? 'spot' : 'both'
+      // Gate credentials are validated per market.  Default to probing both
+      // Spot and Perpetual so a saved credential cannot appear fully connected
+      // after only the Spot endpoint has been checked.
+      return 'both'
     },
     selectedExchangeApiDocUrl () {
       if (this.selectedExchangeId === 'binance' && this.selectedEnvironment === 'demo') {
