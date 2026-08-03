@@ -136,7 +136,7 @@
             </a-form-item>
             <a-form-item v-if="model.leverageEnabled" :label="$t('strategyV2.leverageMultiplier')" required>
               <a-input-number v-model="model.leverage" :min="1" :max="strategyLeverageCap" :step="1" />
-              <div class="field-hint">策略风险上限为 {{ strategyLeverageCap }}x；交易所账户杠杆由账户设置独立决定，创建前会校验现货/合约范围。</div>
+              <div class="field-hint">策略风险上限为 {{ strategyLeverageCap }}x；Gate 合约实际杠杆按合约规则读取并校验，不按固定 50x 推断，也不会静默提高账户杠杆。</div>
             </a-form-item>
             <div v-if="requiresDirectionMode" class="account-risk-panel">
               <div class="account-risk-panel__head">

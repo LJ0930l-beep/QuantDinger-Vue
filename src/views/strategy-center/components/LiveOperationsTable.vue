@@ -140,9 +140,13 @@
             {{ $t('liveMonitor.health') }}
             <strong :class="healthClass(selectedStrategy)">{{ healthLabel(selectedStrategy) }}</strong>
           </span>
+          <span v-if="healthReasonLabel(selectedStrategy)" class="runtime-health-reason">
+            <a-icon type="info-circle" />
+            <strong>{{ healthReasonLabel(selectedStrategy) }}</strong>
+          </span>
           <span>
             {{ $t('strategyCenter.console.latency') }}
-            <strong>{{ health(selectedStrategy).latency_ms || health(selectedStrategy).loop_latency_ms || '-' }} ms</strong>
+            <strong>{{ latencyDisplay(selectedStrategy) }}</strong>
           </span>
           <span>
             {{ $t('liveMonitor.pendingOrders') }}
@@ -289,7 +293,6 @@ import {
   strategyExchangeId,
   strategyExecutionMode,
   strategyLeverage,
-  strategyLastActivity,
   strategyQuoteCurrency,
   strategySymbol,
   strategyTradingConfig,
@@ -387,7 +390,7 @@ export default {
       const marketType = String(this.tradingConfig(this.selectedStrategy).market_type || this.selectedStrategy.market_type || '').toLowerCase()
       return marketType === 'spot'
         ? this.$t('strategyCenter.console.spotMarket')
-        : this.$t('strategyCenter.console.swapMarket')
+        : `${this.$t('strategyCenter.console.swapMarket')} · ${this.$t('strategyCenter.console.strategyRiskCap')} · ${this.$t('strategyCenter.console.exchangeLeverageUnverified')}`
     }
   },
   watch: {
@@ -488,6 +491,10 @@ export default {
       return String(this.health(strategy).health || (this.isRunning(strategy) ? 'unknown' : 'inactive')).toLowerCase()
     },
     healthLabel (strategy) { return this.$t(`liveMonitor.${this.healthState(strategy)}`) },
+    healthReasonLabel (strategy) {
+      const reason = String(this.health(strategy).health_reason || '').toLowerCase()
+      return reason ? this.$t(`liveMonitor.${reason}`) : ''
+    },
     healthClass (strategy) { return `health-${this.healthState(strategy)}` },
     needsAttention (strategy) { return ['degraded', 'stale', 'offline'].includes(this.healthState(strategy)) || Number(this.health(strategy).failed_orders || 0) > 0 },
     statusClass (strategy) { return this.needsAttention(strategy) ? 'warning' : (this.isRunning(strategy) ? 'running' : 'stopped') },
@@ -498,7 +505,13 @@ export default {
       return Number.isFinite(value) ? value : null
     },
     lastActivity (strategy) {
-      return this.health(strategy).last_heartbeat_at || strategyLastActivity(strategy)
+      // A strategy row's updated_at is not a worker heartbeat.  Showing it as
+      // a heartbeat makes a queued command look alive when no worker exists.
+      return this.health(strategy).last_heartbeat_at || ''
+    },
+    latencyDisplay (strategy) {
+      const value = Number(this.health(strategy).latency_ms || this.health(strategy).loop_latency_ms || 0)
+      return value > 0 ? `${value} ms` : '-'
     },
     pnlClass (value) { const number = Number(value || 0); return number > 0 ? 'profit' : number < 0 ? 'loss' : '' },
     formatPnl (value) {
@@ -579,6 +592,8 @@ export default {
 .runtime-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; margin: 10px 2px 12px; color: #788391; font-size: 12px; }
 .runtime-status-bar > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .runtime-status-bar strong { color: #202a37; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.runtime-health-reason { color: #ad6800; }
+.runtime-health-reason strong { color: inherit; }
 .health-healthy { color: #25a25a !important; }.health-degraded,.health-stale { color: #d18425 !important; }.health-offline { color: #d95656 !important; }
 .metric-section { margin-bottom: 12px; }
 .metric-section-head { display: flex; align-items: center; justify-content: space-between; min-height: 28px; padding: 0 2px 6px; }
