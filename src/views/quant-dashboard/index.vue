@@ -65,6 +65,25 @@
       </div>
     </section>
 
+    <section class="section-shell gate-market-shell" aria-labelledby="gate-market-heading">
+      <div class="section-heading compact-heading">
+        <div><span class="section-kicker">Gate TestNet</span><h2 id="gate-market-heading">Spot + Perpetual 行情只读</h2></div>
+        <span class="read-only-badge"><a-icon type="lock" /> GET only · Live OFF</span>
+      </div>
+      <div class="gate-market-summary" data-testid="gate-unified-market-summary">
+        <template v-if="readonlyGateUnifiedMarket && readonlyGateUnifiedMarket.status === 'READY'">
+          <strong>READY</strong>
+          <span>{{ readonlyGateUnifiedMarket.instrument_id }} · {{ readonlyGateUnifiedMarket.interval }}</span>
+          <span>市场：{{ (readonlyGateUnifiedMarket.market_types || []).join(' + ') }}</span>
+          <code>{{ readonlyGateUnifiedMarket.snapshot_fingerprint }}</code>
+        </template>
+        <template v-else>
+          <strong>UNAVAILABLE</strong>
+          <span>启用 Gate TestNet 公共行情读取后显示，部分市场失败时不会展示不完整快照。</span>
+        </template>
+      </div>
+    </section>
+
     <section class="section-shell environment-shell" aria-labelledby="environment-heading">
       <div class="section-heading compact-heading">
         <div><span class="section-kicker">运行环境</span><h2 id="environment-heading">环境与实盘闸门</h2></div>
