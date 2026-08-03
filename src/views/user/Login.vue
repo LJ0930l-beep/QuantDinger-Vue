@@ -953,9 +953,11 @@ export default {
             const response = err.response || {}
             const data = response.data || {}
             if (!response || !response.status) {
-              this.loginError = '无法连接后端服务，请确认后端 API 已启动后重试'
+              this.loginError = '无法连接后端服务，请确认 API 已启动后重试'
+            } else if (response.status === 401) {
+              this.loginError = data.msg || '账号或密码错误；Gate API 凭证不能用于网站登录'
             } else if (response.status >= 500) {
-              this.loginError = `后端服务暂不可用（HTTP ${response.status}），请确认后端 API 已启动`
+              this.loginError = `后端或数据库暂不可用（HTTP ${response.status}），请检查 PostgreSQL 与 DATABASE_URL`
             } else {
               this.loginError = data.msg || err.message || 'Login failed'
             }
