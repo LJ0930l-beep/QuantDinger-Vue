@@ -317,7 +317,7 @@ import {
   runStrategyBacktest
 } from '@/api/strategy'
 import { normalizeScriptTemplate } from '@/views/strategy-ide/components/scriptTemplateCatalog'
-import { strategyDisplay, strategyMeta } from '@/constants/quantCatalog'
+import { strategyDisplay, strategyMeta, strategyTitle } from '@/constants/quantCatalog'
 import PortfolioResult from './PortfolioResult.vue'
 import FactorResearchResult from './FactorResearchResult.vue'
 
@@ -700,7 +700,7 @@ export default {
         const items = Array.isArray(response.data) ? response.data : ((response.data && response.data.items) || [])
         this.templates = items.map(normalizeScriptTemplate).filter(Boolean).map(template => ({
           ...template,
-          title: strategyDisplay(template.key, template.title),
+          title: strategyTitle(template.key, strategyDisplay(template.key, template.title)),
           desc: template.desc || (strategyMeta(template.key) && strategyMeta(template.key).description) || ''
         }))
       } catch (error) {

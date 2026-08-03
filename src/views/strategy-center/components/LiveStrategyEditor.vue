@@ -51,6 +51,8 @@
               </div>
               <p>{{ sourceDetail.description || sourceMetadata.description || $t('trading-assistant.form.scriptSourceHint') }}</p>
               <span>{{ $t('strategyV2.frequency') }} · {{ manifestFrequency }}</span>
+              <span v-if="strategyMarketLabel">市场 · {{ strategyMarketLabel }}</span>
+              <span v-if="manifestInstrumentLabel">标的 · {{ manifestInstrumentLabel }}</span>
               <span v-if="parameterDefinitions.length">{{ $t('trading-assistant.editor.paramsTab') }} · {{ parameterDefinitions.length }}</span>
             </div>
           </div>
@@ -67,6 +69,8 @@
               <span><em>{{ $t('strategyV2.universe') }}</em><b>{{ manifestUniverseLabel }}</b></span>
               <span><em>{{ $t('strategyV2.frequency') }}</em><b>{{ manifestFrequency }}</b></span>
               <span><em>{{ $t('strategyV2.markets') }}</em><b>{{ manifestMarkets }}</b></span>
+              <span><em>交易范围</em><b>{{ strategyMarketLabel }}</b></span>
+              <span><em>策略杠杆上限</em><b>{{ strategyLeverageCap }}x</b></span>
             </div>
           </div>
           <div v-if="parameterDefinitions.length" class="parameter-panel parameter-panel--source">
@@ -131,7 +135,8 @@
               <div v-if="!supportsStrategyV2Leverage" class="field-hint">{{ $t('strategyV2.leverageCryptoSwapOnly') }}</div>
             </a-form-item>
             <a-form-item v-if="model.leverageEnabled" :label="$t('strategyV2.leverageMultiplier')" required>
-              <a-input-number v-model="model.leverage" :min="1" :max="Number(strategyManifest.maxLeverage || 1)" :step="1" />
+              <a-input-number v-model="model.leverage" :min="1" :max="strategyLeverageCap" :step="1" />
+              <div class="field-hint">策略风险上限为 {{ strategyLeverageCap }}x；交易所账户杠杆由账户设置独立决定，创建前会校验现货/合约范围。</div>
             </a-form-item>
             <div v-if="requiresDirectionMode" class="account-risk-panel">
               <div class="account-risk-panel__head">
@@ -182,6 +187,13 @@
             type="info"
             :message="model.executionMode === 'paper' ? 'PAPER 信号必须经过 Canonical Entry、Hard Risk、Admission 和 Outbox。' : $t(model.executionMode === 'live' ? 'strategyV2.liveSourceHint' : 'strategyV2.signalSourceHint')" />
 
+          <div v-if="hasCurrentContract" class="market-scope-card" :class="{ 'is-warning': strategyMarketType === 'mixed' || !strategyMarketType }">
+            <div class="market-scope-card__title"><a-icon type="deployment-unit" /> 本次运行范围</div>
+            <div class="market-scope-card__value">{{ strategyMarketLabel }}</div>
+            <div class="market-scope-card__detail">{{ manifestInstrumentLabel || '由策略源码声明的标的' }} · {{ manifestFrequency }} · {{ model.executionMode === 'live' ? '实盘' : (model.executionMode === 'paper' ? 'PAPER' : '信号') }}</div>
+            <div v-if="strategyMarketType === 'mixed' || !strategyMarketType" class="market-scope-card__warning">策略未声明单一现货或永续合约范围，无法安全启动实盘。</div>
+          </div>
+
           <template v-if="model.executionMode === 'live' || model.executionMode === 'paper'">
             <a-alert v-if="model.executionMode === 'live'" show-icon type="warning" :message="$t('trading-assistant.liveDisclaimer.title')" :description="$t('trading-assistant.liveDisclaimer.content')" />
             <a-checkbox v-if="model.executionMode === 'live'" v-model="model.disclaimer" class="disclaimer-check">{{ $t('trading-assistant.liveDisclaimer.agree') }}</a-checkbox>
@@ -191,7 +203,7 @@
                 :loading="loadingCredentials"
                 :placeholder="$t('trading-assistant.placeholders.selectSavedCredential')">
                 <a-select-option v-for="credential in compatibleCredentials" :key="credential.id" :value="credential.id">
-                  {{ credentialLabel(credential) }}
+                  {{ credentialLabel(credential) }} · {{ credentialMarketScopeLabel(credential) }}
                 </a-select-option>
               </a-select>
               <div v-if="!compatibleCredentials.length" class="field-hint field-hint--warning">
@@ -226,6 +238,10 @@
             <div v-if="selectedCredentialExchange" class="execution-summary">
               <span>{{ $t('trading-assistant.form.exchange') }}</span>
               <strong>{{ exchangeName(selectedCredentialExchange) }}</strong>
+              <span>账户范围</span>
+              <strong>{{ selectedCredentialMarketScopeLabel }}</strong>
+              <a-tag v-if="credentialScopeCompatibility === 'ok'" color="green">范围匹配</a-tag>
+              <a-tag v-else-if="credentialScopeCompatibility === 'mismatch'" color="red">范围不匹配</a-tag>
             </div>
           </template>
 
@@ -259,7 +275,7 @@ import { listExchangeCredentials } from '@/api/credentials'
 import { getNotificationSettings } from '@/api/user'
 import { formatExchangeCredentialLabel, getExchangeDisplayName } from '@/utils/exchangeCredential'
 import { extractScriptParamsFromCode, normalizeScriptTemplate } from '@/views/strategy-ide/components/scriptTemplateCatalog'
-import { strategyDisplay, strategyMeta } from '@/constants/quantCatalog'
+import { strategyDisplay, strategyMeta, strategyTitle } from '@/constants/quantCatalog'
 
 const DEFAULT_CHANNELS = ['browser', 'email']
 const CRYPTO_EXCHANGES = ['binance', 'bitget', 'bybit', 'okx', 'gate', 'htx']
@@ -274,6 +290,12 @@ const DIRECTION_MODE_ALIASES = {
   bidirectional: 'both'
 }
 const DIRECTION_MODES = new Set(['long_only', 'short_only', 'both', 'neutral'])
+const MARKET_SCOPE_ALIASES = {
+  future: 'swap',
+  futures: 'swap',
+  perpetual: 'swap',
+  perp: 'swap'
+}
 const normalizeDirectionMode = value => {
   const normalized = String(value || '').trim().toLowerCase().replace(/-/g, '_')
   const result = DIRECTION_MODE_ALIASES[normalized] || normalized
@@ -355,6 +377,24 @@ export default {
       const markets = Array.isArray(this.strategyManifest.markets) ? this.strategyManifest.markets : []
       return markets.join(', ') || '-'
     },
+    strategyMarketType () {
+      const universe = this.parseObject(this.strategyManifest.universe)
+      const instruments = Array.isArray(universe.instruments) ? universe.instruments : []
+      const types = [...new Set(instruments.map(item => this.normalizeMarketScope(item.market_type || item.marketType)).filter(Boolean))]
+      return types.length === 1 ? types[0] : (types.length > 1 ? 'mixed' : '')
+    },
+    strategyMarketLabel () {
+      const market = this.strategyMarketType
+      if (market === 'spot') return '现货'
+      if (market === 'swap') return '永续合约'
+      if (market === 'mixed') return '混合市场（不可直接实盘）'
+      return '未声明市场类型'
+    },
+    manifestInstrumentLabel () {
+      const universe = this.parseObject(this.strategyManifest.universe)
+      const instruments = Array.isArray(universe.instruments) ? universe.instruments : []
+      return instruments.map(item => item.symbol || item.instrument_id || '').filter(Boolean).join(' / ')
+    },
     manifestUniverseLabel () {
       const universe = this.parseObject(this.strategyManifest.universe)
       if (universe.reference) return this.$t('strategyV2.dynamicUniverse', { reference: universe.reference })
@@ -369,6 +409,11 @@ export default {
         const marketType = String(item.market_type || '').toLowerCase()
         return String(item.market || '') === 'Crypto' && marketType === 'swap'
       })
+    },
+    strategyLeverageCap () {
+      if (!this.supportsStrategyV2Leverage) return 1
+      const declared = Number(this.strategyManifest.maxLeverage || 1)
+      return Math.max(1, Math.min(Number.isFinite(declared) ? declared : 1, 5))
     },
     capitalIsMargin () {
       return this.supportsStrategyV2Leverage
@@ -441,7 +486,11 @@ export default {
       return this.credentials.filter(credential => {
         const exchange = String(credential.exchange_id || '').toLowerCase()
         if (this.isPortfolioStrategy) return exchange === 'alpaca'
-        if (this.marketCategory === 'Crypto') return LIVE_CRYPTO_EXCHANGES.has(exchange)
+        if (this.marketCategory === 'Crypto') {
+          if (!LIVE_CRYPTO_EXCHANGES.has(exchange)) return false
+          const scope = this.normalizeMarketScope(credential.market_scope || credential.marketScope || credential.market_type || credential.marketType)
+          return !scope || scope === 'both' || scope === this.strategyMarketType
+        }
         if (this.marketCategory === 'USStock') return ['alpaca', 'ibkr'].includes(exchange)
         return false
       })
@@ -465,6 +514,18 @@ export default {
     selectedCredentialExchange () {
       const credential = this.credentials.find(item => String(item.id) === String(this.model.credentialId))
       return String((credential && credential.exchange_id) || '')
+    },
+    selectedCredential () {
+      return this.credentials.find(item => String(item.id) === String(this.model.credentialId)) || null
+    },
+    selectedCredentialMarketScopeLabel () {
+      return this.credentialMarketScopeLabel(this.selectedCredential)
+    },
+    credentialScopeCompatibility () {
+      if (!this.selectedCredential || this.marketCategory !== 'Crypto') return 'unknown'
+      const scope = this.normalizeMarketScope(this.selectedCredential.market_scope || this.selectedCredential.marketScope || this.selectedCredential.market_type || this.selectedCredential.marketType)
+      if (!scope || scope === 'both' || !this.strategyMarketType || this.strategyMarketType === 'mixed') return 'unknown'
+      return scope === this.strategyMarketType ? 'ok' : 'mismatch'
     }
   },
   watch: {
@@ -552,7 +613,7 @@ export default {
         const items = Array.isArray(data) ? data : ((data && data.items) || [])
         this.templates = items.map(normalizeScriptTemplate).filter(Boolean).map(template => ({
           ...template,
-          title: strategyDisplay(template.key, template.title),
+          title: strategyTitle(template.key, strategyDisplay(template.key, template.title)),
           desc: template.desc || (strategyMeta(template.key) && strategyMeta(template.key).description) || ''
         }))
       } catch (error) {
@@ -687,9 +748,23 @@ export default {
       if (!this.supportsStrategyV2Leverage) {
         this.model.leverageEnabled = false
         this.model.leverage = 1
+      } else if (this.model.leverage > this.strategyLeverageCap) {
+        this.model.leverage = this.strategyLeverageCap
       } else if (this.model.leverage < 1) {
         this.model.leverage = 1
       }
+    },
+    normalizeMarketScope (value) {
+      const normalized = String(value || '').trim().toLowerCase()
+      if (!normalized) return ''
+      return MARKET_SCOPE_ALIASES[normalized] || (['spot', 'swap', 'both', 'mixed'].includes(normalized) ? normalized : '')
+    },
+    credentialMarketScopeLabel (credential) {
+      const scope = this.normalizeMarketScope(credential && (credential.market_scope || credential.marketScope || credential.market_type || credential.marketType))
+      if (scope === 'spot') return '现货账户'
+      if (scope === 'swap') return '永续合约账户'
+      if (scope === 'both') return '现货 + 永续合约'
+      return '市场范围待确认'
     },
     credentialLabel (credential) {
       return formatExchangeCredentialLabel(credential)
@@ -840,6 +915,14 @@ export default {
         this.$message.warning(this.$t('trading-assistant.validation.credentialRequired'))
         return false
       }
+      if (this.model.executionMode === 'live' && (!this.strategyMarketType || this.strategyMarketType === 'mixed')) {
+        this.$message.warning('实盘策略必须明确声明单一现货或永续合约市场。')
+        return false
+      }
+      if (this.model.executionMode === 'live' && this.credentialScopeCompatibility === 'mismatch') {
+        this.$message.warning('所选账户的市场范围与策略不匹配，请分别选择现货或永续合约账户。')
+        return false
+      }
       if (['live', 'paper'].includes(this.model.executionMode) && this.requiresDirectionFallback && !this.model.directionMode) {
         this.$message.warning(this.$t('strategyCenter.editor.directionModeRequired'))
         return false
@@ -855,7 +938,7 @@ export default {
           name: this.model.name,
           initialCapital: Number(this.model.initialCapital),
           leverageEnabled: Boolean(this.model.leverageEnabled && this.supportsStrategyV2Leverage),
-          leverage: this.model.leverageEnabled ? Number(this.model.leverage || 1) : 1,
+          leverage: this.model.leverageEnabled ? Math.min(Number(this.model.leverage || 1), this.strategyLeverageCap) : 1,
           executionMode: this.model.executionMode,
           credentialId: ['live', 'paper'].includes(this.model.executionMode) ? this.model.credentialId : undefined,
           directionMode: this.requiresDirectionMode ? this.effectiveDirectionMode : undefined,
@@ -933,6 +1016,12 @@ export default {
   .field-hint--warning { color: #d48806; }
   .strategy-defaults, .execution-summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: -2px 0 17px; padding: 11px 13px; border: 1px solid #e4e8ee; border-radius: 7px; background: #f8fafc; color: #727d8b; font-size: 12px; }
   .strategy-defaults strong, .execution-summary strong { color: #202938; font-size: 13px; }
+  .market-scope-card { margin: 14px 0 18px; padding: 14px 16px; border: 1px solid rgba(24, 144, 255, .35); border-radius: 9px; background: linear-gradient(135deg, rgba(24, 144, 255, .08), rgba(114, 46, 209, .04)); }
+  .market-scope-card.is-warning { border-color: rgba(250, 173, 20, .55); background: rgba(250, 173, 20, .08); }
+  .market-scope-card__title { display: flex; align-items: center; gap: 7px; color: #4f8ff7; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+  .market-scope-card__value { margin-top: 4px; color: #18202c; font-size: 18px; font-weight: 700; }
+  .market-scope-card__detail, .market-scope-card__warning { margin-top: 5px; color: #697586; font-size: 12px; }
+  .market-scope-card__warning { color: #ad6800; font-weight: 600; }
   .full-radio-group { display: flex; width: 100%; }
   .full-radio-group .ant-radio-button-wrapper { flex: 1; text-align: center; }
   .parameter-panel { margin-top: 3px; padding: 16px 16px 2px; border: 1px solid #e4e8ee; border-radius: 9px; background: #fafbfc; }
@@ -970,6 +1059,11 @@ export default {
     .account-risk-panel,
     .strategy-defaults,
     .execution-summary { border-color: #30343a; background: #121416; }
+    .market-scope-card { border-color: rgba(64, 169, 255, .42); background: rgba(17, 34, 56, .65); }
+    .market-scope-card.is-warning { border-color: rgba(250, 173, 20, .5); background: rgba(74, 47, 4, .35); }
+    .market-scope-card__value { color: #eef0f3; }
+    .market-scope-card__detail { color: #9aa4b2; }
+    .market-scope-card__warning { color: #ffc53d; }
     .source-summary__icon { background: color-mix(in srgb, var(--primary-color, #52c41a) 16%, #121416); color: var(--primary-color, #52c41a); }
     .source-summary p,
     .source-summary span,

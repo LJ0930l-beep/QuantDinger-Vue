@@ -42,7 +42,7 @@
       </div>
       <div class="builtin-template-grid">
         <article v-for="template in builtinStrategyTemplates" :key="template.key" class="builtin-template-card">
-          <div class="builtin-template-card__title"><h3>{{ template.name }}</h3><a-tag>{{ template.category }}</a-tag></div>
+          <div class="builtin-template-card__title"><h3>{{ strategyTitleLabel(template) }}</h3><a-tag>{{ template.category }}</a-tag></div>
           <p>{{ template.description }}</p>
           <div class="builtin-template-card__meta"><span>{{ template.market }}</span><a-button type="link" size="small" @click="openCreateLive(template.key)">使用模板</a-button></div>
         </article>
@@ -66,7 +66,7 @@ import { mapState } from 'vuex'
 import { deleteStrategy, getStrategyList, startStrategy, stopStrategy } from '@/api/strategy'
 import LiveOperationsTable from './components/LiveOperationsTable.vue'
 import LiveStrategyEditor from './components/LiveStrategyEditor.vue'
-import { BUILTIN_STRATEGY_CATALOG } from '@/constants/quantCatalog'
+import { BUILTIN_STRATEGY_CATALOG, strategyTitle as formatStrategyTitle } from '@/constants/quantCatalog'
 
 export default {
   name: 'StrategyCenter',
@@ -254,6 +254,9 @@ export default {
       if (!value) return '-'
       const date = value instanceof Date ? value : new Date(value)
       return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
+    },
+    strategyTitleLabel (template) {
+      return formatStrategyTitle(template, template && template.name)
     }
   }
 }
