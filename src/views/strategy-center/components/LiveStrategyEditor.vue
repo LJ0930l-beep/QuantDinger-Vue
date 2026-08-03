@@ -162,19 +162,22 @@
           <a-form-item :label="$t('trading-assistant.form.executionMode')">
             <a-radio-group v-model="model.executionMode" button-style="solid">
               <a-radio-button value="signal">{{ $t('trading-assistant.form.executionModeSignal') }}</a-radio-button>
+              <a-radio-button value="paper" :disabled="!supportsPaper">PAPER 纸面执行</a-radio-button>
               <a-radio-button value="live" :disabled="!supportsLive">{{ $t('trading-assistant.form.executionModeLive') }}</a-radio-button>
             </a-radio-group>
-            <div class="field-hint">{{ $t(model.executionMode === 'live' ? 'trading-assistant.form.executionModeLiveDesc' : 'trading-assistant.form.executionModeSignalDesc') }}</div>
+            <div class="field-hint">
+              {{ model.executionMode === 'paper' ? 'PAPER 自动执行只写入 Durable PAPER 事实，不调用交易所。' : $t(model.executionMode === 'live' ? 'trading-assistant.form.executionModeLiveDesc' : 'trading-assistant.form.executionModeSignalDesc') }}
+            </div>
           </a-form-item>
 
           <a-alert
             show-icon
             type="info"
-            :message="$t(model.executionMode === 'live' ? 'strategyV2.liveSourceHint' : 'strategyV2.signalSourceHint')" />
+            :message="model.executionMode === 'paper' ? 'PAPER 信号必须经过 Canonical Entry、Hard Risk、Admission 和 Outbox。' : $t(model.executionMode === 'live' ? 'strategyV2.liveSourceHint' : 'strategyV2.signalSourceHint')" />
 
-          <template v-if="model.executionMode === 'live'">
-            <a-alert show-icon type="warning" :message="$t('trading-assistant.liveDisclaimer.title')" :description="$t('trading-assistant.liveDisclaimer.content')" />
-            <a-checkbox v-model="model.disclaimer" class="disclaimer-check">{{ $t('trading-assistant.liveDisclaimer.agree') }}</a-checkbox>
+          <template v-if="model.executionMode === 'live' || model.executionMode === 'paper'">
+            <a-alert v-if="model.executionMode === 'live'" show-icon type="warning" :message="$t('trading-assistant.liveDisclaimer.title')" :description="$t('trading-assistant.liveDisclaimer.content')" />
+            <a-checkbox v-if="model.executionMode === 'live'" v-model="model.disclaimer" class="disclaimer-check">{{ $t('trading-assistant.liveDisclaimer.agree') }}</a-checkbox>
             <a-form-item :label="$t('trading-assistant.form.savedCredential')" required>
               <a-select
                 v-model="model.credentialId"
@@ -185,7 +188,7 @@
                 </a-select-option>
               </a-select>
               <div v-if="!compatibleCredentials.length" class="field-hint field-hint--warning">
-                {{ $t('trading-assistant.noCredentialForLive.title') }}
+                {{ model.executionMode === 'paper' ? 'PAPER 运行也需要一个已保存的账户作用域；不会读取 API Secret。' : $t('trading-assistant.noCredentialForLive.title') }}
                 <router-link :to="{ path: '/broker-accounts' }">{{ $t('trading-assistant.form.goToProfile') }}</router-link>
               </div>
             </a-form-item>
@@ -369,6 +372,9 @@ export default {
     },
     supportsLive () {
       if (this.isPortfolioStrategy) return this.marketCategory === 'USStock'
+      return ['Crypto', 'USStock'].includes(this.marketCategory)
+    },
+    supportsPaper () {
       return ['Crypto', 'USStock'].includes(this.marketCategory)
     },
     requiresDirectionMode () {
@@ -574,7 +580,7 @@ export default {
         initialCapital: Number(config.initial_capital || strategy.initial_capital || 10000),
         leverageEnabled: Boolean(config.leverage_enabled),
         leverage: Number(config.leverage || 1),
-        executionMode: strategy.execution_mode === 'live' ? 'live' : 'signal',
+        executionMode: ['paper', 'live'].includes(strategy.execution_mode) ? strategy.execution_mode : 'signal',
         credentialId: config.credential_id || undefined,
         directionMode: normalizeDirectionMode(config.direction_mode || config.position_side),
         accountRisk: {
@@ -709,11 +715,11 @@ export default {
         this.$message.warning(this.$t('trading-assistant.liveDisclaimer.required'))
         return false
       }
-      if (this.model.executionMode === 'live' && !this.model.credentialId) {
+      if (['live', 'paper'].includes(this.model.executionMode) && !this.model.credentialId) {
         this.$message.warning(this.$t('trading-assistant.validation.credentialRequired'))
         return false
       }
-      if (this.model.executionMode === 'live' && this.requiresDirectionFallback && !this.model.directionMode) {
+      if (['live', 'paper'].includes(this.model.executionMode) && this.requiresDirectionFallback && !this.model.directionMode) {
         this.$message.warning(this.$t('strategyCenter.editor.directionModeRequired'))
         return false
       }
@@ -730,7 +736,7 @@ export default {
           leverageEnabled: Boolean(this.model.leverageEnabled && this.supportsStrategyV2Leverage),
           leverage: this.model.leverageEnabled ? Number(this.model.leverage || 1) : 1,
           executionMode: this.model.executionMode,
-          credentialId: this.model.executionMode === 'live' ? this.model.credentialId : undefined,
+          credentialId: ['live', 'paper'].includes(this.model.executionMode) ? this.model.credentialId : undefined,
           directionMode: this.requiresDirectionMode ? this.effectiveDirectionMode : undefined,
           positionSide: this.requiresDirectionMode ? directionModePositionSide(this.effectiveDirectionMode) : undefined,
           accountRisk: this.requiresDirectionMode ? { ...this.model.accountRisk } : undefined,
