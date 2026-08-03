@@ -346,7 +346,7 @@ export default {
       readonlyGateAccount: null,
       gateTestnetEnvironmentAccount: null,
       gateTestnetCredentials: [],
-      gateAccountForm: { credential_id: '', account_scope: '', market_type: 'spot', instrument_id: 'BTC_USDT' },
+      gateAccountForm: { credential_id: '', account_scope: 'gate-testnet', market_type: 'spot', instrument_id: 'BTC_USDT' },
       gateAccountLoading: false,
       gateAccountError: '',
       readonlyGateMarket: null,
@@ -354,7 +354,7 @@ export default {
       gateTestnetExecution: null,
       testnetForm: {
         credential_id: '',
-        account_scope: '',
+        account_scope: 'gate-testnet',
         instrument_id: 'BTC_USDT',
         market_type: 'spot',
         side: 'BUY',
