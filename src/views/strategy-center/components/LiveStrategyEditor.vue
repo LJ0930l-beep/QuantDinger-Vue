@@ -137,6 +137,9 @@
             <a-form-item v-if="model.leverageEnabled" :label="$t('strategyV2.leverageMultiplier')" required>
               <a-input-number v-model="model.leverage" :min="strategyLeverageFloor" :max="strategyLeverageCap" :step="1" />
               <div class="field-hint">策略杠杆范围为 {{ strategyLeverageRange }}；Gate 合约实际范围按合约规则读取并校验，不会静默提高账户杠杆。</div>
+              <div v-if="gateLeverageContractStale" class="field-hint field-hint--warning">
+                {{ $t('strategyV2.gateLeverageContractStale') }}
+              </div>
             </a-form-item>
             <div v-if="requiresDirectionMode" class="account-risk-panel">
               <div class="account-risk-panel__head">
@@ -410,13 +413,26 @@ export default {
         return String(item.market || '') === 'Crypto' && marketType === 'swap'
       })
     },
+    isGateCryptoSwap () {
+      return this.supportsStrategyV2Leverage &&
+        this.strategyMarketType === 'swap' &&
+        this.selectedCredentialExchange.toLowerCase() === 'gate'
+    },
+    gateLeverageContractStale () {
+      if (!this.isGateCryptoSwap) return false
+      const minimum = Number(this.strategyManifest.minLeverage)
+      const maximum = Number(this.strategyManifest.maxLeverage)
+      return minimum !== 50 || maximum !== 100
+    },
     strategyLeverageFloor () {
       if (!this.supportsStrategyV2Leverage) return 1
+      if (this.isGateCryptoSwap) return 50
       const declared = Number(this.strategyManifest.minLeverage || (this.strategyCatalogMeta && this.strategyCatalogMeta.leverageMin) || 1)
       return Math.max(1, Number.isFinite(declared) ? declared : 1)
     },
     strategyLeverageCap () {
       if (!this.supportsStrategyV2Leverage) return 1
+      if (this.isGateCryptoSwap) return 100
       const declared = Number(this.strategyManifest.maxLeverage || (this.strategyCatalogMeta && this.strategyCatalogMeta.leverageCap) || 1)
       return Math.max(this.strategyLeverageFloor, Number.isFinite(declared) ? declared : 1)
     },
@@ -660,8 +676,14 @@ export default {
       } catch (error) {}
     },
     async loadSourceDetail (id, applyDefaults = true) {
-      if (!id) return
-      const sourceId = String(id)
+      // Ant Design Vue can pass the native change event when an option is
+      // selected through the popup.  v-model has already been updated in
+      // that case; never stringify the event into a fake source id such as
+      // `template:[object PointerEvent]`.
+      const selectedId = id && typeof id === 'object' ? this.model.scriptSourceId : id
+      if (!selectedId) return
+      const sourceId = String(selectedId)
+      if (sourceId.includes('[object PointerEvent]') || sourceId === '[object Object]') return
       if (applyDefaults && !this.isEdit) this.model.directionMode = ''
       this.compiledManifest = {}
       this.sourceContractError = false
@@ -932,6 +954,14 @@ export default {
         this.$message.warning(this.$t('trading-assistant.validation.credentialRequired'))
         return false
       }
+      if (
+        ['live', 'paper'].includes(this.model.executionMode) &&
+        this.model.leverageEnabled &&
+        this.gateLeverageContractStale
+      ) {
+        this.$message.error(this.$t('strategyV2.gateLeverageContractStale'))
+        return false
+      }
       if (this.model.executionMode === 'live' && (!this.strategyMarketType || this.strategyMarketType === 'mixed')) {
         this.$message.warning('实盘策略必须明确声明单一现货或永续合约市场。')
         return false
@@ -974,7 +1004,11 @@ export default {
         this.$message.success(this.$t(this.isEdit ? 'trading-assistant.messages.updateSuccess' : 'trading-assistant.messages.createSuccess'))
         this.$emit('saved')
       } catch (error) {
-        this.$message.error(error.backendMessage || error.message || this.$t(this.isEdit ? 'trading-assistant.messages.updateFailed' : 'trading-assistant.messages.createFailed'))
+        const rawMessage = error && (error.backendMessage || error.message)
+        const message = rawMessage && this.$te && this.$te(String(rawMessage))
+          ? this.$t(String(rawMessage))
+          : rawMessage
+        this.$message.error(message || this.$t(this.isEdit ? 'trading-assistant.messages.updateFailed' : 'trading-assistant.messages.createFailed'))
       } finally {
         this.saving = false
       }

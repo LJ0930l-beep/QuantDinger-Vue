@@ -390,7 +390,7 @@ export default {
       const marketType = String(this.tradingConfig(this.selectedStrategy).market_type || this.selectedStrategy.market_type || '').toLowerCase()
       return marketType === 'spot'
         ? this.$t('strategyCenter.console.spotMarket')
-        : `${this.$t('strategyCenter.console.swapMarket')} · ${this.$t('strategyCenter.console.strategyRiskCap')} · ${this.$t('strategyCenter.console.exchangeLeverageUnverified')}`
+        : `${this.$t('strategyCenter.console.swapMarket')} · Gate 50–100x · ${this.$t('strategyCenter.console.exchangeLeverageUnverified')}`
     }
   },
   watch: {
@@ -492,11 +492,12 @@ export default {
     },
     healthLabel (strategy) { return this.$t(`liveMonitor.${this.healthState(strategy)}`) },
     healthReasonLabel (strategy) {
+      if (this.leverageContractIssue(strategy)) return this.$t('strategyV2.gateLeverageContractInvalid')
       const reason = String(this.health(strategy).health_reason || '').toLowerCase()
       return reason ? this.$t(`liveMonitor.${reason}`) : ''
     },
     healthClass (strategy) { return `health-${this.healthState(strategy)}` },
-    needsAttention (strategy) { return ['degraded', 'stale', 'offline'].includes(this.healthState(strategy)) || Number(this.health(strategy).failed_orders || 0) > 0 },
+    needsAttention (strategy) { return this.leverageContractIssue(strategy) || ['degraded', 'stale', 'offline'].includes(this.healthState(strategy)) || Number(this.health(strategy).failed_orders || 0) > 0 },
     statusClass (strategy) { return this.needsAttention(strategy) ? 'warning' : (this.isRunning(strategy) ? 'running' : 'stopped') },
     statusLabel (strategy) { return this.needsAttention(strategy) ? this.healthLabel(strategy) : (this.isRunning(strategy) ? this.$t('systemOverview.running') : this.$t('systemOverview.stopped')) },
     strategyPnl (strategy) {
@@ -512,6 +513,16 @@ export default {
     latencyDisplay (strategy) {
       const value = Number(this.health(strategy).latency_ms || this.health(strategy).loop_latency_ms || 0)
       return value > 0 ? `${value} ms` : '-'
+    },
+    leverageContractIssue (strategy) {
+      if (!strategy || this.executionMode(strategy) !== 'live') return false
+      const config = this.tradingConfig(strategy)
+      const marketType = String(config.market_type || strategy.market_type || '').trim().toLowerCase()
+      const exchange = strategyExchangeId(strategy)
+      if (exchange !== 'gate' || marketType !== 'swap') return false
+      if (!config.leverage_enabled) return false
+      const leverage = Number(config.leverage || strategy.leverage || 0)
+      return !Number.isFinite(leverage) || leverage < 50 || leverage > 100
     },
     pnlClass (value) { const number = Number(value || 0); return number > 0 ? 'profit' : number < 0 ? 'loss' : '' },
     formatPnl (value) {
