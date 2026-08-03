@@ -466,6 +466,7 @@
 <script>
 import { mapState } from 'vuex'
 import IndicatorCard from './components/IndicatorCard.vue'
+import { BUILTIN_INDICATOR_CATALOG, BUILTIN_STRATEGY_CATALOG, toCommunityIndicator, toCommunityStrategy } from '@/constants/quantCatalog'
 import IndicatorDetail from './components/IndicatorDetail.vue'
 import AuthorDashboard from './components/AuthorDashboard.vue'
 import request from '@/utils/request'
@@ -628,6 +629,12 @@ export default {
   methods: {
     async loadIndicators () {
       this.loading = true
+      const hasLocalFilters = Boolean(this.filters.keyword || this.filters.pricingType || this.filters.codeVisibility || this.normalizedPriceRange.min !== undefined || this.normalizedPriceRange.max !== undefined)
+      const builtinItems = !hasLocalFilters
+        ? (this.marketAssetType === 'indicator'
+            ? BUILTIN_INDICATOR_CATALOG.map(toCommunityIndicator)
+            : BUILTIN_STRATEGY_CATALOG.map(toCommunityStrategy))
+        : []
       try {
         const res = await request({
           url: '/api/community/indicators',
@@ -646,8 +653,9 @@ export default {
           }
         })
         if (res.code === 1) {
-          this.indicators = res.data.items || []
-          this.pagination.total = Number(res.data.total || 0)
+          const remoteItems = Array.isArray(res.data.items) ? res.data.items : []
+          this.indicators = [...builtinItems, ...remoteItems]
+          this.pagination.total = Number(res.data.total || 0) + builtinItems.length
           const counts = res.data.asset_type_counts || {}
           const currentTypeCount = this.pagination.total
           this.marketAssetCounts = {
@@ -664,10 +672,14 @@ export default {
             this.pagination.current = totalPages
           }
         } else {
+          this.indicators = builtinItems
+          this.pagination.total = builtinItems.length
           this.$message.error(res.msg || this.$t('community.loadFailed'))
         }
       } catch (e) {
         console.error('Load indicators failed:', e)
+        this.indicators = builtinItems
+        this.pagination.total = builtinItems.length
         this.$message.error(this.$t('community.loadFailed'))
       } finally {
         this.loading = false
@@ -727,6 +739,14 @@ export default {
     },
 
     openDetail (indicator) {
+      if (indicator && indicator.is_builtin) {
+        if (indicator.asset_type === 'script_template') {
+          this.$router.push({ path: '/strategy-center', query: { mode: 'create', template_key: String(indicator.template_key || '') } })
+        } else {
+          this.$router.push({ path: '/indicator-ide', query: { builtin_indicator_id: String(indicator.id) } })
+        }
+        return
+      }
       this.selectedIndicatorId = indicator.id
       this.detailVisible = true
     },

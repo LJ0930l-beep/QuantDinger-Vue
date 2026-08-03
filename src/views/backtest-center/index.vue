@@ -305,8 +305,10 @@ import { timestampMillisecondsUtc } from '@/utils/utcInstant'
 import { formatBacktestTime } from '@/utils/userTime'
 import {
   compileScriptSource,
+  createScriptSource,
   getScriptSourceDetail,
   getScriptSourceList,
+  getScriptTemplateList,
   getStrategyFactorResearchHistory,
   getStrategyFactorResearchRun,
   getStrategyBacktestHistory,
@@ -314,6 +316,8 @@ import {
   runStrategyFactorResearch,
   runStrategyBacktest
 } from '@/api/strategy'
+import { normalizeScriptTemplate } from '@/views/strategy-ide/components/scriptTemplateCatalog'
+import { strategyDisplay, strategyMeta } from '@/constants/quantCatalog'
 import PortfolioResult from './PortfolioResult.vue'
 import FactorResearchResult from './FactorResearchResult.vue'
 
@@ -324,6 +328,7 @@ export default {
     return {
       mode: 'portfolio',
       sources: [],
+      templates: [],
       portfolioHistory: [],
       factorHistory: [],
       source: null,
@@ -369,7 +374,16 @@ export default {
       return this.mode === 'portfolio' ? this.result : this.factorResult
     },
     availableSources () {
-      if (this.mode !== 'factor') return this.sources
+      if (this.mode !== 'factor') {
+        const templateSources = this.templates.map(template => ({
+          id: `template:${template.key}`,
+          name: template.title,
+          template_key: template.key,
+          asset_type: template.assetType,
+          is_template: true
+        }))
+        return [...this.sources, ...templateSources]
+      }
       return this.sources.filter(item => item.asset_type === 'portfolio_strategy')
     },
     history () {
@@ -566,8 +580,8 @@ export default {
   },
   async mounted () {
     await this.refreshPage()
-    const routeSourceId = Number(this.$route.query.sourceId)
-    const sourceId = routeSourceId || (this.sources[0] && Number(this.sources[0].id))
+    const routeSourceId = this.$route.query.sourceId ? String(this.$route.query.sourceId) : ''
+    const sourceId = routeSourceId || (this.sources[0] && String(this.sources[0].id))
     if (sourceId) {
       this.form.sourceId = sourceId
       await this.selectSource(sourceId)
@@ -674,11 +688,24 @@ export default {
       try { return JSON.parse(value) } catch (error) { return {} }
     },
     async refreshPage () {
-      await Promise.all([this.loadSources(), this.loadHistory()])
+      await Promise.all([this.loadSources(), this.loadTemplates(), this.loadHistory()])
     },
     async loadSources () {
       const response = await getScriptSourceList()
       this.sources = (response.data && response.data.items) || []
+    },
+    async loadTemplates () {
+      try {
+        const response = await getScriptTemplateList()
+        const items = Array.isArray(response.data) ? response.data : ((response.data && response.data.items) || [])
+        this.templates = items.map(normalizeScriptTemplate).filter(Boolean).map(template => ({
+          ...template,
+          title: strategyDisplay(template.key, template.title),
+          desc: template.desc || (strategyMeta(template.key) && strategyMeta(template.key).description) || ''
+        }))
+      } catch (error) {
+        this.templates = []
+      }
     },
     async loadHistory () {
       this.historyLoading = true
@@ -696,10 +723,10 @@ export default {
     async handleModeChange () {
       this.selectedRun = null
       this.historyVisible = false
-      const currentId = Number(this.form.sourceId)
-      const currentAvailable = this.availableSources.some(item => Number(item.id) === currentId)
+      const currentId = String(this.form.sourceId || '')
+      const currentAvailable = this.availableSources.some(item => String(item.id) === currentId)
       if (!currentAvailable) {
-        const nextSource = this.availableSources[0]
+        const nextSource = this.sources[0]
         this.form.sourceId = nextSource ? Number(nextSource.id) : null
         if (nextSource) await this.selectSource(nextSource.id)
         else {
@@ -717,9 +744,17 @@ export default {
       this.selectedRun = null
       this.form.leverageEnabled = false
       this.form.leverage = 1
-      const response = await getScriptSourceDetail(sourceId)
+      let resolvedSourceId = sourceId
+      if (String(sourceId).startsWith('template:')) {
+        const template = this.templates.find(item => `template:${item.key}` === String(sourceId))
+        if (!template) return
+        resolvedSourceId = await this.ensureTemplateSource(template)
+        if (!resolvedSourceId) return
+        this.form.sourceId = Number(resolvedSourceId)
+      }
+      const response = await getScriptSourceDetail(resolvedSourceId)
       this.source = response.data
-      const compiled = await compileScriptSource({ sourceId })
+      const compiled = await compileScriptSource({ sourceId: Number(resolvedSourceId) })
       this.manifest = compiled.data && compiled.data.manifest
       this.backtestRangePolicy = compiled.data && compiled.data.backtestRangePolicy
       this.applyBacktestRangePolicy()
@@ -729,8 +764,33 @@ export default {
       }, {})
     },
     sourceTypeLabel (item) {
+      if (item && item.is_template) return '内置模板'
       if (String(item.template_key || '').startsWith('robot_v2_')) return this.$t('strategyV2.robot')
       return this.$t(item.asset_type === 'portfolio_strategy' ? 'strategyV2.portfolio' : 'strategyV2.cta')
+    },
+    async ensureTemplateSource (template) {
+      const existing = this.sources.find(item => String(item.template_key || '') === String(template.key))
+      if (existing && existing.id) return existing.id
+      try {
+        const response = await createScriptSource({
+          name: template.title,
+          description: template.desc,
+          code: template.code,
+          asset_type: template.assetType,
+          template_key: template.key,
+          param_schema: { params: template.params || [] },
+          metadata: { ...(template.metadata || {}), source: 'system_template', template_key: template.key }
+        })
+        const item = response && response.data
+        const id = item && (item.id || item.source_id)
+        if (!id) throw new Error('template source was not created')
+        await this.loadSources()
+        this.$message.success('已将内置策略复制到策略源，可开始回测')
+        return id
+      } catch (error) {
+        this.$message.error('内置策略初始化失败，请稍后重试')
+        return null
+      }
     },
     formatInstrument (item) {
       const marketType = String(item.market_type || item.marketType || '').toLowerCase()

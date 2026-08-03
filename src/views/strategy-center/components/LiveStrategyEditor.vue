@@ -259,6 +259,7 @@ import { listExchangeCredentials } from '@/api/credentials'
 import { getNotificationSettings } from '@/api/user'
 import { formatExchangeCredentialLabel, getExchangeDisplayName } from '@/utils/exchangeCredential'
 import { extractScriptParamsFromCode, normalizeScriptTemplate } from '@/views/strategy-ide/components/scriptTemplateCatalog'
+import { strategyDisplay, strategyMeta } from '@/constants/quantCatalog'
 
 const DEFAULT_CHANNELS = ['browser', 'email']
 const CRYPTO_EXCHANGES = ['binance', 'bitget', 'bybit', 'okx', 'gate', 'htx']
@@ -478,7 +479,9 @@ export default {
     defaultModel () {
       const config = this.initialConfig || {}
       return {
-        scriptSourceId: config.sourceId ? String(config.sourceId) : '',
+        scriptSourceId: config.sourceId
+          ? String(config.sourceId)
+          : (config.templateKey ? `template:${String(config.templateKey)}` : ''),
         name: '',
         timeframe: '1d',
         initialCapital: Number(config.initial_capital) > 0 ? Number(config.initial_capital) : 1000,
@@ -547,7 +550,11 @@ export default {
         const res = await getScriptTemplateList()
         const data = res && res.data
         const items = Array.isArray(data) ? data : ((data && data.items) || [])
-        this.templates = items.map(normalizeScriptTemplate).filter(Boolean)
+        this.templates = items.map(normalizeScriptTemplate).filter(Boolean).map(template => ({
+          ...template,
+          title: strategyDisplay(template.key, template.title),
+          desc: template.desc || (strategyMeta(template.key) && strategyMeta(template.key).description) || ''
+        }))
       } catch (error) {
         this.templates = []
       } finally {
