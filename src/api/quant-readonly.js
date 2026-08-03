@@ -77,6 +77,21 @@ export function getReadonlyGateAccount (scope = {}) {
   })
 }
 
+/** Read-only Spot + Perpetual Gate evidence under one credential scope. */
+export function getReadonlyGateUnifiedAccount (scope = {}) {
+  return request({
+    url: '/api/quant/gate/account/unified/readonly',
+    method: 'get',
+    params: {
+      credential_id: scope.credential_id,
+      account_scope: scope.account_scope,
+      instrument_id: scope.instrument_id,
+      as_of: scope.as_of
+    },
+    timeout: 16000
+  })
+}
+
 /**
  * Explicit real Gate TestNet account read. The backend requires
  * QUANT_GATE_TESTNET_ENV_READ_ENABLED=1 and never exposes write capability.

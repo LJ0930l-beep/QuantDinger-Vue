@@ -53,6 +53,9 @@
         <button type="button" class="ghost-action" :disabled="gateAccountLoading || !gateAccountForm.credential_id || !gateAccountForm.account_scope" @click="connectGateTestnetAccount">
           {{ gateAccountLoading ? '读取中…' : '连接 TestNet 只读账户' }}
         </button>
+        <button type="button" class="ghost-action secondary" :disabled="gateAccountLoading || !gateAccountForm.credential_id || !gateAccountForm.account_scope" @click="connectGateUnifiedTestnetAccount">
+          {{ gateAccountLoading ? 'READING…' : '读取 Spot + Perpetual' }}
+        </button>
       </div>
       <div class="gate-account-evidence" :class="gateAccountEvidenceTone" data-testid="gate-account-evidence">
         <strong>{{ gateAccountEvidenceTitle }}</strong>
@@ -317,7 +320,7 @@ import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
 import { listExchangeCredentials } from '@/api/credentials'
-import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, cancelGateTestnetOrder, getGateTestnetOrder, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
+ import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateUnifiedAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, cancelGateTestnetOrder, getGateTestnetOrder, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
 import { formatGateReadonlyError } from '@/utils/gateReadonlyDiagnostics'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
@@ -344,7 +347,8 @@ export default {
       readonlyShadow: null,
       nonLiveRunManifest: null,
       deploymentReadiness: null,
-      readonlyGateAccount: null,
+       readonlyGateAccount: null,
+       readonlyGateUnifiedAccount: null,
       gateTestnetEnvironmentAccount: null,
       gateTestnetCredentials: [],
       gateAccountForm: { credential_id: '', account_scope: 'gate-testnet', market_type: 'spot', instrument_id: 'BTC_USDT' },
@@ -888,6 +892,29 @@ export default {
       } catch (e) {
         this.gateTestnetEnvironmentAccount = null
         this.gateAccountError = formatGateReadonlyError(e)
+      }
+    },
+    async connectGateUnifiedTestnetAccount () {
+      this.gateAccountLoading = true
+      this.gateAccountError = ''
+      try {
+        const response = await getReadonlyGateUnifiedAccount({
+          credential_id: Number(this.gateAccountForm.credential_id),
+          account_scope: this.gateAccountForm.account_scope,
+          instrument_id: this.gateAccountForm.instrument_id
+        })
+        const body = response && response.data ? response.data : response
+        if (body && body.status === 'READY' && body.live_enabled === false) {
+          this.readonlyGateUnifiedAccount = body
+          this.gateTestnetEnvironmentAccount = body.markets && body.markets[this.gateAccountForm.market_type]
+            ? body.markets[this.gateAccountForm.market_type]
+            : null
+          this.interactionNote = 'Gate Spot + Perpetual 只读快照已更新，Live OFF'
+        }
+      } catch (error) {
+        this.gateAccountError = formatGateReadonlyError(error)
+      } finally {
+        this.gateAccountLoading = false
       }
     },
     async connectGateTestnetAccount () {
