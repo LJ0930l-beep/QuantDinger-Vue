@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { quantDashboardMock } from '../../src/mocks/quantDashboard.js'
+import { formatGateReadonlyError } from '../../src/utils/gateReadonlyDiagnostics.js'
 
 test('quant dashboard mock is visibly non-live and complete enough for the read-only prototype', () => {
   assert.equal(quantDashboardMock.status.liveTrading, 'OFF')
@@ -57,6 +58,33 @@ test('frontend connects to the backend TestNet readonly account without credenti
   assert.match(view, /凭证仅在后端环境中读取/)
   assert.doesNotMatch(view, /GATE_TESTNET_API_SECRET\s*=/)
   assert.doesNotMatch(view, /GATE_TESTNET_API_KEY\s*=/)
+})
+
+test('Gate readonly diagnostics expose typed safe failures without raw provider text', () => {
+  const permission = formatGateReadonlyError({
+    response: {
+      status: 400,
+      data: {
+        msg: 'GATE_TESTNET_PERMISSION_OR_IP_REJECTED',
+        data: { failed_markets: [{ market_type: 'spot', code: 'GATE_TESTNET_PERMISSION_OR_IP_REJECTED' }] }
+      }
+    }
+  })
+  assert.match(permission, /权限或 IP 白名单被拒绝/)
+  assert.match(permission, /spot/)
+  assert.doesNotMatch(permission, /secret|api[_-]?key|raw-provider/i)
+
+  const auth = formatGateReadonlyError({
+    response: { status: 400, data: { msg: 'GATE_TESTNET_AUTH_REJECTED', data: null } }
+  })
+  assert.match(auth, /凭证鉴权失败/)
+  assert.doesNotMatch(auth, /undefined|null$/)
+
+  const fallback = formatGateReadonlyError({
+    response: { status: 503, data: { msg: 'UNEXPECTED_PROVIDER_TEXT', data: { detail: 'secret-value' } } }
+  })
+  assert.match(fallback, /只读服务暂不可用/)
+  assert.doesNotMatch(fallback, /secret-value|UNEXPECTED_PROVIDER_TEXT/)
 })
 
 test('frontend renders the built-in strategy catalog when the read-only catalog is ready', () => {

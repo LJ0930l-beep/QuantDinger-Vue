@@ -318,6 +318,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
 import { listExchangeCredentials } from '@/api/credentials'
 import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, cancelGateTestnetOrder, getGateTestnetOrder, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
+import { formatGateReadonlyError } from '@/utils/gateReadonlyDiagnostics'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -886,6 +887,7 @@ export default {
         }
       } catch (e) {
         this.gateTestnetEnvironmentAccount = null
+        this.gateAccountError = formatGateReadonlyError(e)
       }
     },
     async connectGateTestnetAccount () {
@@ -922,7 +924,7 @@ export default {
         this.interactionNote = '已刷新 Gate TestNet 真实账户只读快照；未启用下单或 Live'
       } catch (e) {
         this.gateTestnetEnvironmentAccount = null
-        this.gateAccountError = '读取失败：请确认后端 TestNet 只读开关、登录状态和账户范围'
+        this.gateAccountError = formatGateReadonlyError(e)
       } finally {
         this.gateAccountLoading = false
       }
