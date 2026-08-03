@@ -414,6 +414,61 @@ export default {
       const catalog = this.strategyCatalog
       if (!catalog || catalog.status !== 'READY' || !Array.isArray(catalog.strategies)) return previewCards
 
+      // Keep the complete product roster visible even when a read-only catalog
+      // response is partial. Catalog data enriches the cards; it never hides a
+      // known built-in strategy because one item was unavailable.
+      const canonicalIds = [
+        'ema-adx-trend',
+        'donchian-atr',
+        'bollinger-rsi',
+        'dual-thrust',
+        'buy-and-hold',
+        'smc-structure',
+        'ict-liquidity-displacement'
+      ]
+      const fallbackNames = {
+        'ema-adx-trend': 'EMA + ADX Trend',
+        'donchian-atr': 'Donchian + ATR',
+        'bollinger-rsi': 'Bollinger + RSI',
+        'dual-thrust': 'Dual Thrust Breakout',
+        'buy-and-hold': 'Buy & Hold',
+        'smc-structure': 'SMC Structure',
+        'ict-liquidity-displacement': 'ICT Liquidity Sweep'
+      }
+      const completePreviewById = {
+        'ema-adx-trend': previewCards.find(card => /EMA|ADX/i.test(String(card.name || ''))),
+        'donchian-atr': previewCards.find(card => /Donchian/i.test(String(card.name || ''))),
+        'bollinger-rsi': previewCards.find(card => /Bollinger|RSI/i.test(String(card.name || ''))),
+        'dual-thrust': previewCards.find(card => /Dual Thrust/i.test(String(card.name || ''))),
+        'buy-and-hold': previewCards.find(card => /Buy\s*&\s*Hold/i.test(String(card.name || ''))),
+        'smc-structure': previewCards.find(card => String(card.name || '').includes('SMC')),
+        'ict-liquidity-displacement': previewCards.find(card => String(card.name || '').includes('ICT'))
+      }
+      const catalogById = new Map(catalog.strategies
+        .filter(item => item && item.strategy_id)
+        .map(item => [String(item.strategy_id), item]))
+      const enrich = item => ({
+        key: `builtin:${item.strategy_id}`,
+        ...(completePreviewById[item.strategy_id] || {
+          name: fallbackNames[item.strategy_id] || item.strategy_id,
+          mode: 'SHADOW',
+          status: 'Built-in research catalog',
+          signal: 'Waiting for research signal',
+          confidence: '—',
+          exposure: '0.00 USDT',
+          budget: 'Unassigned',
+          kill: 'Safety gate',
+          accent: 'cyan'
+        }),
+        catalogVersion: item.version,
+        parameterNames: Array.isArray(item.parameter_names) ? item.parameter_names : []
+      })
+      const completeRoster = canonicalIds.map(id => enrich(catalogById.get(id) || { strategy_id: id }))
+      const extras = catalog.strategies
+        .filter(item => item && item.strategy_id && !canonicalIds.includes(String(item.strategy_id)))
+        .map(enrich)
+      if (completeRoster.length) return completeRoster.concat(extras)
+
       const names = {
         'ema-adx-trend': 'EMA + ADX 趋势',
         'donchian-atr': 'Donchian + ATR',

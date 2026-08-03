@@ -27,12 +27,19 @@
               v-model="model.scriptSourceId"
               show-search
               option-filter-prop="children"
-              :loading="loadingSources"
+              :loading="loadingSources || loadingTemplates"
               :placeholder="$t('trading-assistant.form.scriptSourcePlaceholder')"
               @change="loadSourceDetail">
-              <a-select-option v-for="source in sources" :key="String(source.id)" :value="String(source.id)">
-                {{ source.name || source.title || source.strategy_name || `#${source.id}` }}
-              </a-select-option>
+              <a-select-opt-group v-if="sources.length" label="已保存策略">
+                <a-select-option v-for="source in sources" :key="String(source.id)" :value="String(source.id)">
+                  {{ source.name || source.title || source.strategy_name || `#${source.id}` }}
+                </a-select-option>
+              </a-select-opt-group>
+              <a-select-opt-group v-if="templates.length" label="内置策略模板">
+                <a-select-option v-for="template in templates" :key="templateOptionId(template)" :value="templateOptionId(template)">
+                  {{ template.title }}<span v-if="template.tags && template.tags.length"> · {{ template.tags.join(' / ') }}</span>
+                </a-select-option>
+              </a-select-opt-group>
             </a-select>
           </a-form-item>
           <div v-if="model.scriptSourceId" class="source-summary">
@@ -188,6 +195,10 @@
                 </a-select-option>
               </a-select>
               <div v-if="!compatibleCredentials.length" class="field-hint field-hint--warning">
+                {{ credentialCompatibilityHint }}
+                <router-link :to="{ path: '/broker-accounts' }">{{ $t('trading-assistant.form.goToProfile') }}</router-link>
+              </div>
+              <div v-if="false" class="field-hint field-hint--warning">
                 {{ model.executionMode === 'paper' ? 'PAPER 运行也需要一个已保存的账户作用域；不会读取 API Secret。' : $t('trading-assistant.noCredentialForLive.title') }}
                 <router-link :to="{ path: '/broker-accounts' }">{{ $t('trading-assistant.form.goToProfile') }}</router-link>
               </div>
@@ -242,12 +253,12 @@
 </template>
 
 <script>
-import { compileScriptSource, createStrategy, getScriptSourceDetail, getScriptSourceList, getStrategyDetail, updateStrategy } from '@/api/strategy'
+import { compileScriptSource, createScriptSource, createStrategy, getScriptSourceDetail, getScriptSourceList, getScriptTemplateList, getStrategyDetail, updateStrategy } from '@/api/strategy'
 import { mapState } from 'vuex'
 import { listExchangeCredentials } from '@/api/credentials'
 import { getNotificationSettings } from '@/api/user'
 import { formatExchangeCredentialLabel, getExchangeDisplayName } from '@/utils/exchangeCredential'
-import { extractScriptParamsFromCode } from '@/views/strategy-ide/components/scriptTemplateCatalog'
+import { extractScriptParamsFromCode, normalizeScriptTemplate } from '@/views/strategy-ide/components/scriptTemplateCatalog'
 
 const DEFAULT_CHANNELS = ['browser', 'email']
 const CRYPTO_EXCHANGES = ['binance', 'bitget', 'bybit', 'okx', 'gate', 'htx']
@@ -298,8 +309,10 @@ export default {
       loading: false,
       saving: false,
       loadingSources: false,
+      loadingTemplates: false,
       loadingCredentials: false,
       sources: [],
+      templates: [],
       credentials: [],
       sourceDetail: {},
       compiledManifest: {},
@@ -432,6 +445,22 @@ export default {
         return false
       })
     },
+    selectedTemplate () {
+      const value = String(this.model.scriptSourceId || '')
+      if (!value.startsWith('template:')) return null
+      const key = value.slice('template:'.length)
+      return this.templates.find(template => template.key === key) || null
+    },
+    credentialCompatibilityHint () {
+      if (!this.credentials.length) return '未找到已保存账户，请先在“管理交易所连接”中保存账户。'
+      if (this.marketCategory === 'Crypto' && !this.compatibleCredentials.length) {
+        return '当前策略属于 Crypto，但没有可用的 Gate / Binance / Bitget / Bybit / OKX / HTX 账户；请先保存 Crypto 账户。'
+      }
+      if (this.marketCategory === 'USStock' && !this.compatibleCredentials.length) {
+        return '当前策略属于美股，Gate 账户不适用；请切换 Crypto 策略，或保存 Alpaca / IBKR 账户。'
+      }
+      return '没有与当前策略市场匹配的已保存账户，请先管理交易所连接。'
+    },
     selectedCredentialExchange () {
       const credential = this.credentials.find(item => String(item.id) === String(this.model.credentialId))
       return String((credential && credential.exchange_id) || '')
@@ -492,6 +521,7 @@ export default {
       try {
         await Promise.all([
           this.loadSources(),
+          this.loadTemplates(),
           this.loadCredentials(),
           this.loadNotifications()
         ])
@@ -511,10 +541,23 @@ export default {
         this.loadingSources = false
       }
     },
+    async loadTemplates () {
+      this.loadingTemplates = true
+      try {
+        const res = await getScriptTemplateList()
+        const data = res && res.data
+        const items = Array.isArray(data) ? data : ((data && data.items) || [])
+        this.templates = items.map(normalizeScriptTemplate).filter(Boolean)
+      } catch (error) {
+        this.templates = []
+      } finally {
+        this.loadingTemplates = false
+      }
+    },
     async loadCredentials () {
       this.loadingCredentials = true
       try {
-        const res = await listExchangeCredentials({ user_id: 1 })
+        const res = await listExchangeCredentials()
         this.credentials = res && res.code === 1 && res.data ? (res.data.items || []) : []
       } finally {
         this.loadingCredentials = false
@@ -538,6 +581,41 @@ export default {
       this.compiledManifest = {}
       this.sourceContractError = false
       this.sourceContractLoading = true
+      const template = sourceId.startsWith('template:')
+        ? this.templates.find(item => item.key === sourceId.slice('template:'.length))
+        : null
+      if (template) {
+        try {
+          const contractResult = await compileScriptSource({ code: template.code })
+          if (String(this.model.scriptSourceId) !== sourceId) return
+          const manifest = this.parseObject(contractResult && contractResult.data && contractResult.data.manifest)
+          this.sourceDetail = {
+            name: template.title,
+            title: template.title,
+            description: template.desc,
+            code: template.code,
+            asset_type: template.assetType,
+            template_key: template.key,
+            param_schema: { params: template.params || [] },
+            metadata: { ...(template.metadata || {}), source: 'system_template', template_key: template.key }
+          }
+          this.compiledManifest = manifest
+          this.sourceContractError = !Object.keys(manifest).length
+          if (!this.model.name || (applyDefaults && !this.isEdit)) this.model.name = template.title
+          if (applyDefaults && !this.isEdit) {
+            this.model.timeframe = this.manifestFrequency
+            this.model.templateParams = this.buildParameterValues({})
+            this.model.leverageEnabled = false
+            this.model.leverage = 1
+            this.normalizeExecutionFields()
+          }
+        } catch (error) {
+          if (String(this.model.scriptSourceId) === sourceId) this.sourceContractError = true
+        } finally {
+          if (String(this.model.scriptSourceId) === sourceId) this.sourceContractLoading = false
+        }
+        return
+      }
       const contractRequest = compileScriptSource({ sourceId: Number(sourceId) })
         .then(response => ({ response }))
         .catch(error => ({ error }))
@@ -665,6 +743,10 @@ export default {
         this.$message.warning(this.$t('trading-assistant.form.scriptSourceRequired'))
         return
       }
+      if (this.step === 0 && this.selectedTemplate) {
+        const sourceId = await this.ensureTemplateSource()
+        if (!sourceId) return
+      }
       if (this.step === 0 && !this.hasCurrentContract) {
         await this.loadSourceContract(this.model.scriptSourceId)
       }
@@ -683,6 +765,38 @@ export default {
         }
       }
       this.step += 1
+    },
+    templateOptionId (template) {
+      return `template:${template.key}`
+    },
+    async ensureTemplateSource () {
+      const template = this.selectedTemplate
+      if (!template) return this.model.scriptSourceId
+      this.sourceContractLoading = true
+      try {
+        const res = await createScriptSource({
+          name: template.title,
+          description: template.desc,
+          code: template.code,
+          asset_type: template.assetType,
+          template_key: template.key,
+          param_schema: { params: template.params || [] },
+          metadata: { ...(template.metadata || {}), source: 'system_template', template_key: template.key }
+        })
+        const item = res && res.data
+        const sourceId = item && (item.id || item.source_id)
+        if (!sourceId) throw new Error('template source was not created')
+        this.sourceDetail = item
+        this.$set(this.model, 'scriptSourceId', String(sourceId))
+        await this.loadSources()
+        this.$message.success('已将内置策略复制到我的策略，可继续配置。')
+        return sourceId
+      } catch (error) {
+        this.$message.error('内置策略初始化失败，请稍后重试。')
+        return null
+      } finally {
+        this.sourceContractLoading = false
+      }
     },
     async loadSourceContract (id) {
       if (!id) return false
