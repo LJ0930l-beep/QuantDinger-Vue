@@ -132,6 +132,21 @@
           {{ $t('trading-assistant.positions.liveFetchedAt') }}: {{ formatTime(snapshotFetchedAt) }}
         </div>
         <a-tabs v-model="snapshotActiveTab" class="snapshot-tabs">
+          <a-tab-pane key="balances" :tab="balanceTabLabel">
+            <a-table
+              v-if="balanceRows.length"
+              :columns="balanceColumns"
+              :data-source="balanceRows"
+              :pagination="false"
+              size="small"
+              row-key="rowKey"
+              :scroll="{ x: 560 }"
+            />
+            <a-empty
+              v-else
+              :description="snapshotErrors.length ? $t('trading-assistant.positions.fetchFailedShort') : '暂无余额事实'"
+            />
+          </a-tab-pane>
           <a-tab-pane key="swap" :tab="swapTabLabel">
             <a-table
               v-if="swapRows.length"
@@ -186,6 +201,7 @@
 <script>
 import { listExchangeCredentials, deleteExchangeCredential, testSavedExchangeCredential } from '@/api/credentials'
 import { getAccountSnapshot } from '@/api/strategy'
+import { getReadonlyGateAccount } from '@/api/quant-readonly'
 import ExchangeAccountModal from '@/components/ExchangeAccountModal/ExchangeAccountModal.vue'
 import RenameCredentialModal from '@/components/RenameCredentialModal/RenameCredentialModal.vue'
 import { filterCryptoExchangeCredentials, getExchangeDisplayName } from '@/utils/exchangeCredential'
@@ -228,6 +244,7 @@ export default {
       snapshotLoading: false,
       snapshotTarget: null,
       snapshotActiveTab: 'swap',
+      balanceRows: [],
       swapRows: [],
       spotRows: [],
       orderRows: [],
@@ -246,6 +263,10 @@ export default {
       const name = this.credentialAlias(item)
       const ex = this.exchangeDisplayName(item.exchange_id)
       return `${this.$t('trading-assistant.positions.accountPositionsTitle')} · ${ex} (${name})`
+    },
+    balanceTabLabel () {
+      const n = this.balanceRows.length
+      return n > 0 ? `余额 (${n})` : '余额'
     },
     swapTabLabel () {
       const n = this.swapRows.length
@@ -275,6 +296,16 @@ export default {
         { title: this.$t('trading-assistant.table.side'), dataIndex: 'sideLabel', width: 80 },
         { title: this.$t('trading-assistant.table.size'), dataIndex: 'sizeLabel', width: 120 },
         { title: this.$t('trading-assistant.table.entryPrice'), dataIndex: 'entryLabel', width: 120 }
+      ]
+    },
+    balanceColumns () {
+      return [
+        { title: '资产', dataIndex: 'asset', width: 110 },
+        { title: '市场', dataIndex: 'marketType', width: 90 },
+        { title: '总额', dataIndex: 'totalLabel', width: 120 },
+        { title: '可用', dataIndex: 'availableLabel', width: 120 },
+        { title: '冻结', dataIndex: 'lockedLabel', width: 120 },
+        { title: '估值币种', dataIndex: 'valuationCcy', width: 100 }
       ]
     },
     orderColumns () {
@@ -353,11 +384,11 @@ export default {
     mapPositionRows (rows) {
       return (rows || []).map((r, idx) => {
         const side = String(r.side || '').toLowerCase()
-        const size = parseFloat(r.size || 0)
-        const entry = parseFloat(r.entry_price || 0)
+        const size = parseFloat(r.size ?? r.quantity ?? 0)
+        const entry = parseFloat(r.entry_price ?? r.average_entry_price ?? 0)
         return {
-          rowKey: r.inst_id || `${r.symbol}-${side}-${idx}`,
-          symbol: r.symbol || '',
+          rowKey: r.inst_id || r.instrument_id || `${r.symbol || ''}-${side}-${idx}`,
+          symbol: r.symbol || r.instrument_id || '',
           sideLabel: side === 'long'
             ? this.$t('trading-assistant.table.long')
             : side === 'short'
@@ -371,12 +402,12 @@ export default {
     mapOrderRows (rows) {
       return (rows || []).map((r, idx) => {
         const side = String(r.side || '').toLowerCase()
-        const px = parseFloat(r.price || 0)
-        const amt = parseFloat(r.amount || 0)
-        const filled = parseFloat(r.filled || 0)
+        const px = parseFloat(r.price ?? r.average_fill_price ?? 0)
+        const amt = parseFloat(r.amount ?? r.quantity ?? 0)
+        const filled = parseFloat(r.filled ?? r.filled_quantity ?? 0)
         return {
-          rowKey: r.exchange_order_id || `${r.symbol}-${side}-${idx}`,
-          symbol: r.symbol || '',
+          rowKey: r.exchange_order_id || `${r.symbol || r.instrument_id || ''}-${side}-${idx}`,
+          symbol: r.symbol || r.instrument_id || '',
           sideLabel: side === 'buy' || side === 'long'
             ? this.$t('trading-assistant.table.buy')
             : side === 'sell' || side === 'short'
@@ -389,6 +420,66 @@ export default {
           statusLabel: String(r.status || '--')
         }
       })
+    },
+    mapBalanceRows (rows, marketType) {
+      return (rows || []).map((r, idx) => ({
+        rowKey: `${marketType}-${r.asset || idx}`,
+        asset: r.asset || '--',
+        marketType: String(marketType || '--').toUpperCase(),
+        totalLabel: String(r.total ?? '--'),
+        availableLabel: String(r.available ?? '--'),
+        lockedLabel: String(r.locked ?? '--'),
+        valuationCcy: r.valuation_ccy || r.valuationCcy || '--'
+      }))
+    },
+    async openGateTestnetSnapshot (item) {
+      const configuredScope = String(item && item.market_scope || 'both').toLowerCase()
+      const markets = configuredScope === 'spot'
+        ? ['spot']
+        : configuredScope === 'swap'
+          ? ['perpetual']
+          : ['spot', 'perpetual']
+      const results = await Promise.all(markets.map(async marketType => {
+        try {
+          const response = await getReadonlyGateAccount({
+            credential_id: item.id,
+            market_type: marketType,
+            account_scope: 'gate-testnet',
+            instrument_id: ''
+          })
+          const data = response && response.data ? response.data : response
+          if (!data || data.status !== 'READY') {
+            throw new Error('Gate TestNet 只读账户暂不可用')
+          }
+          return { marketType, data }
+        } catch (error) {
+          return { marketType, error }
+        }
+      }))
+      let readyCount = 0
+      const errors = []
+      results.forEach(result => {
+        if (result.error) {
+          const backendMessage = result.error.backendMessage ||
+            (result.error.response && result.error.response.data && result.error.response.data.msg)
+          errors.push(`${String(result.marketType).toUpperCase()}: ${backendMessage || result.error.message || '读取失败'}`)
+          return
+        }
+        readyCount += 1
+        const data = result.data
+        this.balanceRows = this.balanceRows.concat(this.mapBalanceRows(data.balances, result.marketType))
+        const positions = this.mapPositionRows(data.positions || [])
+        if (result.marketType === 'spot') this.spotRows = this.spotRows.concat(positions)
+        else this.swapRows = this.swapRows.concat(positions)
+        this.orderRows = this.orderRows.concat(this.mapOrderRows(data.orders || []))
+        if (!this.snapshotFetchedAt || String(data.observed_at || '') > String(this.snapshotFetchedAt)) {
+          this.snapshotFetchedAt = data.observed_at || null
+        }
+      })
+      this.snapshotErrors = errors
+      this.snapshotPartial = readyCount > 0 && errors.length > 0
+      if (!readyCount && errors.length) this.$message.error(errors[0])
+      else if (errors.length) this.$message.warning(errors[0])
     },
     async loadCredentials () {
       this.loading = true
@@ -422,8 +513,9 @@ export default {
     async openSnapshotModal (item) {
       this.snapshotTarget = item
       this.snapshotModalVisible = true
-      this.snapshotActiveTab = 'swap'
+      this.snapshotActiveTab = this.isGateTestnet(item) ? 'balances' : 'swap'
       this.snapshotLoading = true
+      this.balanceRows = []
       this.swapRows = []
       this.spotRows = []
       this.orderRows = []
@@ -431,6 +523,10 @@ export default {
       this.snapshotErrors = []
       this.snapshotPartial = false
       try {
+        if (this.isGateTestnet(item)) {
+          await this.openGateTestnetSnapshot(item)
+          return
+        }
         const res = await getAccountSnapshot({ credential_id: item.id })
         const data = (res && res.data) ? res.data : {}
         this.swapRows = this.mapPositionRows(data.swap_positions || [])
