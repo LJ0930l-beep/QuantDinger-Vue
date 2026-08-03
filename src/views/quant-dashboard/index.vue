@@ -320,7 +320,7 @@ import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { quantDashboardMock } from '@/mocks/quantDashboard'
 import { listExchangeCredentials } from '@/api/credentials'
- import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateUnifiedAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, cancelGateTestnetOrder, getGateTestnetOrder, getReadonlyGateMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
+ import { getReadonlyQuantState, getReadonlyBacktestResult, getReadonlyPersistedBacktestReport, getReadonlyPaperShadowResult, getReadonlyPaperAccount, getReadonlyDurablePaperAccount, getReadonlyPaperRecovery, getResearchReadiness, getReadonlyStrategyCatalog, getReadonlyResearchRun, getReadonlyReleaseReadiness, getReadonlyTestnetRehearsal, getReadonlyQuantOperations, getReadonlyProjectionGeneration, getReadonlyReconciliationCheckpoint, getReadonlyShadowSummary, getReadonlyNonLiveRunManifest, getReadonlyDeploymentReadiness, getReadonlyGateAccount, getReadonlyGateUnifiedAccount, getGateTestnetEnvironmentAccount, submitGateTestnetOrder, cancelGateTestnetOrder, getGateTestnetOrder, getReadonlyGateMarket, getReadonlyGateUnifiedMarket, getReadonlyProductRehearsal, getReadonlyGateTestnetExecutionRehearsal } from '@/api/quant-readonly'
 import { formatGateReadonlyError } from '@/utils/gateReadonlyDiagnostics'
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
@@ -355,6 +355,7 @@ export default {
       gateAccountLoading: false,
       gateAccountError: '',
       readonlyGateMarket: null,
+      readonlyGateUnifiedMarket: null,
       productRehearsal: null,
       gateTestnetExecution: null,
       testnetForm: {
@@ -906,6 +907,18 @@ export default {
         const body = response && response.data ? response.data : response
         if (body && body.status === 'READY' && body.live_enabled === false) {
           this.readonlyGateUnifiedAccount = body
+          try {
+            const marketResponse = await getReadonlyGateUnifiedMarket({
+              instrument_id: this.gateAccountForm.instrument_id,
+              interval: '1m'
+            })
+            const marketBody = marketResponse && marketResponse.data ? marketResponse.data : marketResponse
+            if (marketBody && marketBody.status === 'READY' && marketBody.live_enabled === false) {
+              this.readonlyGateUnifiedMarket = marketBody
+            }
+          } catch (marketError) {
+            this.readonlyGateUnifiedMarket = null
+          }
           this.gateTestnetEnvironmentAccount = body.markets && body.markets[this.gateAccountForm.market_type]
             ? body.markets[this.gateAccountForm.market_type]
             : null

@@ -180,6 +180,21 @@ export function getReadonlyGateMarket (scope = {}) {
   })
 }
 
+/** Read-only Spot + Perpetual Gate market evidence; partial results stay unavailable. */
+export function getReadonlyGateUnifiedMarket (scope = {}) {
+  return request({
+    url: '/api/quant/gate/market/unified/readonly',
+    method: 'get',
+    params: {
+      instrument_id: scope.instrument_id,
+      interval: scope.interval || '1m',
+      candle_limit: scope.candle_limit || 100,
+      depth_limit: scope.depth_limit || 20
+    },
+    timeout: 20000
+  })
+}
+
 /** Complete fixture-only product rehearsal; never a write-capable path. */
 export function getReadonlyProductRehearsal () {
   return request({
