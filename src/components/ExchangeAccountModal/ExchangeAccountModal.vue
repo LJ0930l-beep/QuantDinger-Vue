@@ -64,7 +64,7 @@
         </a-form-item>
 
         <a-form-item :label="$t('profile.exchange.marketScope')">
-          <a-select v-decorator="['market_scope', { initialValue: 'both' }]">
+          <a-select v-decorator="['market_scope', { initialValue: defaultMarketScope }]">
             <a-select-option v-for="option in marketScopeOptions" :key="option.value" :value="option.value">
               {{ $t(option.labelKey) }}
             </a-select-option>
@@ -292,6 +292,11 @@ export default {
       // selection while keeping an explicit Live option available.
       return this.selectedExchangeId === 'gate' ? 'testnet' : 'live'
     },
+    defaultMarketScope () {
+      // A newly created Gate key commonly starts with spot read permission.
+      // Require an explicit choice before probing perpetual permissions.
+      return this.selectedExchangeId === 'gate' ? 'spot' : 'both'
+    },
     selectedExchangeApiDocUrl () {
       if (this.selectedExchangeId === 'binance' && this.selectedEnvironment === 'demo') {
         return 'https://developers.binance.com/docs/binance-spot-api-docs/demo-mode/general-info'
@@ -419,7 +424,7 @@ export default {
       }
       if (this.addExchangeType === 'crypto') {
         p.environment = p.environment || 'live'
-        p.market_scope = p.market_scope || 'both'
+        p.market_scope = p.market_scope || this.defaultMarketScope
         p.enable_demo_trading = p.environment !== 'live'
       }
       return p
@@ -494,7 +499,7 @@ export default {
       }
       if (this.addExchangeType === 'crypto') {
         this.$nextTick(() => {
-          this.exchangeForm.setFieldsValue({ environment: defaultEnvironment, market_scope: 'both' })
+          this.exchangeForm.setFieldsValue({ environment: defaultEnvironment, market_scope: this.defaultMarketScope })
         })
       }
     },
