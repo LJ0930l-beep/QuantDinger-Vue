@@ -70,7 +70,7 @@
               <span><em>{{ $t('strategyV2.frequency') }}</em><b>{{ manifestFrequency }}</b></span>
               <span><em>{{ $t('strategyV2.markets') }}</em><b>{{ manifestMarkets }}</b></span>
               <span><em>交易范围</em><b>{{ strategyMarketLabel }}</b></span>
-              <span><em>策略杠杆上限</em><b>{{ strategyLeverageCap }}x</b></span>
+              <span><em>策略杠杆范围</em><b>{{ strategyLeverageRange }}</b></span>
             </div>
           </div>
           <div v-if="parameterDefinitions.length" class="parameter-panel parameter-panel--source">
@@ -135,8 +135,8 @@
               <div v-if="!supportsStrategyV2Leverage" class="field-hint">{{ $t('strategyV2.leverageCryptoSwapOnly') }}</div>
             </a-form-item>
             <a-form-item v-if="model.leverageEnabled" :label="$t('strategyV2.leverageMultiplier')" required>
-              <a-input-number v-model="model.leverage" :min="1" :max="strategyLeverageCap" :step="1" />
-              <div class="field-hint">策略风险上限为 {{ strategyLeverageCap }}x；Gate 合约实际杠杆按合约规则读取并校验，不按固定 50x 推断，也不会静默提高账户杠杆。</div>
+              <a-input-number v-model="model.leverage" :min="strategyLeverageFloor" :max="strategyLeverageCap" :step="1" />
+              <div class="field-hint">策略杠杆范围为 {{ strategyLeverageRange }}；Gate 合约实际范围按合约规则读取并校验，不会静默提高账户杠杆。</div>
             </a-form-item>
             <div v-if="requiresDirectionMode" class="account-risk-panel">
               <div class="account-risk-panel__head">
@@ -410,17 +410,29 @@ export default {
         return String(item.market || '') === 'Crypto' && marketType === 'swap'
       })
     },
+    strategyLeverageFloor () {
+      if (!this.supportsStrategyV2Leverage) return 1
+      const declared = Number(this.strategyManifest.minLeverage || (this.strategyCatalogMeta && this.strategyCatalogMeta.leverageMin) || 1)
+      return Math.max(1, Number.isFinite(declared) ? declared : 1)
+    },
     strategyLeverageCap () {
       if (!this.supportsStrategyV2Leverage) return 1
-      const declared = Number(this.strategyManifest.maxLeverage || 1)
-      return Math.max(1, Math.min(Number.isFinite(declared) ? declared : 1, 5))
+      const declared = Number(this.strategyManifest.maxLeverage || (this.strategyCatalogMeta && this.strategyCatalogMeta.leverageCap) || 1)
+      return Math.max(this.strategyLeverageFloor, Number.isFinite(declared) ? declared : 1)
+    },
+    strategyLeverageRange () {
+      return `${this.strategyLeverageFloor}–${this.strategyLeverageCap}x`
+    },
+    strategyCatalogMeta () {
+      const key = this.sourceDetail.template_key || this.sourceDetail.templateKey || this.sourceDetail.key || ''
+      return strategyMeta(key)
     },
     capitalIsMargin () {
       return this.supportsStrategyV2Leverage
     },
     effectiveLeverage () {
       if (!this.capitalIsMargin || !this.model.leverageEnabled) return 1
-      return Math.max(1, Number(this.model.leverage) || 1)
+      return Math.max(this.strategyLeverageFloor, Number(this.model.leverage) || this.strategyLeverageFloor)
     },
     formattedInitialCapital () {
       return (Math.max(0, Number(this.model.initialCapital) || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -529,6 +541,11 @@ export default {
     }
   },
   watch: {
+    'model.leverageEnabled' (value) {
+      if (value && this.supportsStrategyV2Leverage && this.model.leverage < this.strategyLeverageFloor) {
+        this.model.leverage = this.strategyLeverageFloor
+      }
+    },
     visible: {
       immediate: true,
       handler (value) {
@@ -750,8 +767,8 @@ export default {
         this.model.leverage = 1
       } else if (this.model.leverage > this.strategyLeverageCap) {
         this.model.leverage = this.strategyLeverageCap
-      } else if (this.model.leverage < 1) {
-        this.model.leverage = 1
+      } else if (this.model.leverage < this.strategyLeverageFloor) {
+        this.model.leverage = this.strategyLeverageFloor
       }
     },
     normalizeMarketScope (value) {
@@ -938,7 +955,9 @@ export default {
           name: this.model.name,
           initialCapital: Number(this.model.initialCapital),
           leverageEnabled: Boolean(this.model.leverageEnabled && this.supportsStrategyV2Leverage),
-          leverage: this.model.leverageEnabled ? Math.min(Number(this.model.leverage || 1), this.strategyLeverageCap) : 1,
+          leverage: this.model.leverageEnabled
+            ? Math.max(this.strategyLeverageFloor, Math.min(Number(this.model.leverage || this.strategyLeverageFloor), this.strategyLeverageCap))
+            : 1,
           executionMode: this.model.executionMode,
           credentialId: ['live', 'paper'].includes(this.model.executionMode) ? this.model.credentialId : undefined,
           directionMode: this.requiresDirectionMode ? this.effectiveDirectionMode : undefined,
