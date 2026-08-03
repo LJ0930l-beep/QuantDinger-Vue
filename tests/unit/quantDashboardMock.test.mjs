@@ -46,6 +46,13 @@ test('frontend renders readonly Gate balance and position pnl evidence when avai
   assert.match(view, /Gate TestNet 只读证据/)
 })
 
+test('frontend surfaces the unified account read-health receipt without inventing reconciliation health', () => {
+  const view = readFileSync(new URL('../../src/views/quant-dashboard/index.vue', import.meta.url), 'utf8')
+  assert.match(view, /gateReadHealth/)
+  assert.match(view, /read_health/)
+  assert.match(view, /Reconciliation:/)
+})
+
 test('frontend connects to the backend TestNet readonly account without credential inputs', () => {
   const view = readFileSync(new URL('../../src/views/quant-dashboard/index.vue', import.meta.url), 'utf8')
   assert.match(view, /connectGateTestnetAccount/)
