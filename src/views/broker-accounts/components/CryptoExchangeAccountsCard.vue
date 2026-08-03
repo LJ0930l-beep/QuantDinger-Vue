@@ -357,7 +357,20 @@ export default {
       try {
         const response = await testSavedExchangeCredential(item.id)
         if (response && response.code === 1) {
-          this.$message.success('Gate TestNet 连接成功')
+          const tested = response.data && Array.isArray(response.data.tested_markets)
+            ? response.data.tested_markets.join(', ')
+            : ''
+          this.$message.success(tested ? `Gate TestNet 连接成功：${tested}` : 'Gate TestNet 连接成功')
+        } else if (response && response.data && (
+          Array.isArray(response.data.tested_markets) || Array.isArray(response.data.failed_markets)
+        )) {
+          const tested = Array.isArray(response.data.tested_markets)
+            ? response.data.tested_markets.join(', ')
+            : 'none'
+          const failed = Array.isArray(response.data.failed_markets)
+            ? response.data.failed_markets.map(item => `${item.market_type || 'unknown'} (${item.code || 'failed'})`).join(', ')
+            : 'unknown'
+          this.$message.error(`Gate TestNet 部分成功：已验证 ${tested}；失败 ${failed}`)
         } else {
           this.$message.error((response && response.msg) || 'Gate TestNet 连接失败')
         }
