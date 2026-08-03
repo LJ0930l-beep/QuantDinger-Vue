@@ -250,6 +250,27 @@ export function submitPaperOrder (payload = {}) {
   })
 }
 
+/** Append an explicit PAPER fill; the backend keeps the fill identity and
+ * fee facts durable and never contacts a venue. */
+export function appendPaperFill (orderId, payload = {}) {
+  return request({
+    url: `/api/quant/paper/order/${encodeURIComponent(orderId)}/fill`,
+    method: 'post',
+    data: payload,
+    timeout: 20000
+  })
+}
+
+/** Record a deterministic PAPER cancellation; this is not a venue cancel. */
+export function cancelPaperOrder (orderId, payload = {}) {
+  return request({
+    url: `/api/quant/paper/order/${encodeURIComponent(orderId)}/cancel`,
+    method: 'post',
+    data: payload,
+    timeout: 20000
+  })
+}
+
 /** Replay persisted Paper facts against an explicit snapshot checkpoint. */
 export function getReadonlyPaperRecovery (options = {}) {
   return request({
