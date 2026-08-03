@@ -825,6 +825,7 @@ export default {
       if (!query.gate_testnet_account || !query.account_scope) return
       try {
         const response = await getGateTestnetEnvironmentAccount({
+          credential_id: query.credential_id,
           market_type: query.market_type || 'spot',
           account_scope: query.account_scope,
           instrument_id: query.instrument_id

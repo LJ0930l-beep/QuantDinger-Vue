@@ -86,6 +86,7 @@ export function getGateTestnetEnvironmentAccount (scope = {}) {
     url: '/api/quant/gate/testnet/account',
     method: 'get',
     params: {
+      credential_id: scope.credential_id,
       market_type: scope.market_type || 'spot',
       account_scope: scope.account_scope,
       instrument_id: scope.instrument_id
