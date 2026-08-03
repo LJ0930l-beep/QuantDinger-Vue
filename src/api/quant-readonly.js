@@ -92,6 +92,21 @@ export function getReadonlyGateUnifiedAccount (scope = {}) {
   })
 }
 
+/** Read-only Gate account health receipt without returning balances or orders. */
+export function getReadonlyGateUnifiedAccountHealth (scope = {}) {
+  return request({
+    url: '/api/quant/gate/account/unified/health/readonly',
+    method: 'get',
+    params: {
+      credential_id: scope.credential_id,
+      account_scope: scope.account_scope,
+      instrument_id: scope.instrument_id,
+      as_of: scope.as_of
+    },
+    timeout: 16000
+  })
+}
+
 /**
  * Explicit real Gate TestNet account read. The backend requires
  * QUANT_GATE_TESTNET_ENV_READ_ENABLED=1 and never exposes write capability.

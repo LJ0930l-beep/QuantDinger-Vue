@@ -59,6 +59,7 @@ test('frontend connects to the backend TestNet readonly account without credenti
   assert.match(view, /listExchangeCredentials/)
   assert.match(view, /getReadonlyGateAccount/)
   assert.match(view, /getReadonlyGateUnifiedAccount/)
+  assert.match(readFileSync(new URL('../../src/api/quant-readonly.js', import.meta.url), 'utf8'), /getReadonlyGateUnifiedAccountHealth/)
   assert.match(view, /connectGateUnifiedTestnetAccount/)
   assert.match(view, /getReadonlyGateUnifiedMarket/)
   assert.match(view, /gate-unified-market-summary/)
