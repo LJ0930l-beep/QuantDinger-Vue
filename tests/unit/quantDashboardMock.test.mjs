@@ -53,6 +53,8 @@ test('frontend connects to the backend TestNet readonly account without credenti
   assert.match(view, /getReadonlyGateAccount/)
   assert.match(view, /getReadonlyGateUnifiedAccount/)
   assert.match(view, /connectGateUnifiedTestnetAccount/)
+  assert.match(view, /getReadonlyGateUnifiedMarket/)
+  assert.match(view, /gate-unified-market-summary/)
   assert.match(view, /marketResponse = await getReadonlyGateMarket/)
   assert.match(view, /refreshGateTestnetAccountSnapshot/)
   assert.match(view, /getGateTestnetEnvironmentAccount/)
