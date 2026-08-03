@@ -427,13 +427,13 @@ export default {
         'ict-liquidity-displacement'
       ]
       const fallbackNames = {
-        'ema-adx-trend': 'EMA + ADX Trend',
+        'ema-adx-trend': 'EMA + ADX 趋势',
         'donchian-atr': 'Donchian + ATR',
-        'bollinger-rsi': 'Bollinger + RSI',
-        'dual-thrust': 'Dual Thrust Breakout',
+        'bollinger-rsi': '布林带 + RSI',
+        'dual-thrust': 'Dual Thrust 突破',
         'buy-and-hold': 'Buy & Hold',
-        'smc-structure': 'SMC Structure',
-        'ict-liquidity-displacement': 'ICT Liquidity Sweep'
+        'smc-structure': 'SMC 结构策略',
+        'ict-liquidity-displacement': 'ICT 流动性扫描'
       }
       const completePreviewById = {
         'ema-adx-trend': previewCards.find(card => /EMA|ADX/i.test(String(card.name || ''))),
