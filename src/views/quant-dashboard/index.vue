@@ -390,6 +390,7 @@ export default {
         'ema-adx-trend': 'EMA + ADX 趋势',
         'donchian-atr': 'Donchian + ATR',
         'bollinger-rsi': '布林带 + RSI',
+        'dual-thrust': 'Dual Thrust 突破',
         'buy-and-hold': 'Buy & Hold',
         'smc-structure': 'SMC 结构策略',
         'ict-liquidity-displacement': 'ICT 流动性位移'
@@ -398,6 +399,7 @@ export default {
         EMA_ADX_TREND: 'cyan',
         DONCHIAN_ATR: 'green',
         BOLLINGER_RSI: 'purple',
+        DUAL_THRUST: 'green',
         BUY_AND_HOLD: 'cyan',
         SMC: 'purple',
         ICT: 'purple'

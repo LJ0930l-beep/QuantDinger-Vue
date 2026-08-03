@@ -11,11 +11,12 @@ test('quant dashboard mock is visibly non-live and complete enough for the read-
   assert.ok(['PAPER', 'SHADOW'].includes(quantDashboardMock.status.environment))
   assert.equal(quantDashboardMock.label.includes('模拟数据'), true)
   assert.equal(quantDashboardMock.positions.length > 0, true)
-  assert.equal(quantDashboardMock.strategies.length, 6)
+  assert.equal(quantDashboardMock.strategies.length, 7)
   assert.deepEqual(
-    quantDashboardMock.strategies.map(strategy => strategy.name),
+    quantDashboardMock.strategies.filter(strategy => strategy.name !== 'Dual Thrust Breakout').map(strategy => strategy.name),
     ['SMC 结构策略', 'ICT 流动性扫描', 'EMA + ADX 趋势', 'Donchian + ATR', '布林带 + RSI', 'Buy & Hold']
   )
+  assert.equal(quantDashboardMock.strategies.some(strategy => strategy.name === 'Dual Thrust Breakout'), true)
   assert.equal(quantDashboardMock.pipeline.length, 6)
   assert.equal(quantDashboardMock.equityChart.labels.length, quantDashboardMock.equityChart.equity.length)
   assert.equal(quantDashboardMock.equityChart.equity.every(value => typeof value === 'string'), true)
@@ -65,6 +66,7 @@ test('frontend renders the built-in strategy catalog when the read-only catalog 
   assert.match(view, /'ema-adx-trend'/)
   assert.match(view, /'donchian-atr'/)
   assert.match(view, /'bollinger-rsi'/)
+  assert.match(view, /'dual-thrust'/)
   assert.match(view, /'buy-and-hold'/)
   assert.match(view, /'smc-structure'/)
   assert.match(view, /'ict-liquidity-displacement'/)

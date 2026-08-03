@@ -56,6 +56,7 @@ export const quantDashboardMock = Object.freeze({
     Object.freeze({ name: 'EMA + ADX 趋势', mode: 'SHADOW', status: '内置研究目录', signal: '等待研究信号', confidence: '-', exposure: '0.00 USDT', budget: '未分配', kill: '安全闸门', accent: 'cyan' }),
     Object.freeze({ name: 'Donchian + ATR', mode: 'SHADOW', status: '内置研究目录', signal: '等待研究信号', confidence: '-', exposure: '0.00 USDT', budget: '未分配', kill: '安全闸门', accent: 'green' }),
     Object.freeze({ name: '布林带 + RSI', mode: 'SHADOW', status: '内置研究目录', signal: '等待研究信号', confidence: '-', exposure: '0.00 USDT', budget: '未分配', kill: '安全闸门', accent: 'purple' }),
+    Object.freeze({ name: 'Dual Thrust Breakout', mode: 'SHADOW', status: '内置研究目录', signal: '等待研究信号', confidence: '-', exposure: '0.00 USDT', budget: '未分配', kill: '安全闸门', accent: 'green' }),
     Object.freeze({ name: 'Buy & Hold', mode: 'SHADOW', status: '内置研究目录', signal: '等待研究信号', confidence: '-', exposure: '0.00 USDT', budget: '未分配', kill: '安全闸门', accent: 'cyan' })
   ]),
   signals: Object.freeze([
