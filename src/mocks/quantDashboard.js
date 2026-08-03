@@ -53,8 +53,10 @@ export const quantDashboardMock = Object.freeze({
   strategies: Object.freeze([
     Object.freeze({ name: 'SMC 结构策略', mode: 'SHADOW', status: '观察中', signal: '看涨结构突破', confidence: '78%', exposure: '8,200.00 USDT', budget: '12,000.00 USDT', kill: '正常', accent: 'purple' }),
     Object.freeze({ name: 'ICT 流动性扫描', mode: 'PAPER', status: '运行中', signal: '卖方流动性扫单', confidence: '71%', exposure: '5,480.00 USDT', budget: '9,000.00 USDT', kill: '正常', accent: 'cyan' }),
-    Object.freeze({ name: '趋势跟随', mode: 'PAPER', status: '运行中', signal: '趋势保持', confidence: '64%', exposure: '10,920.00 USDT', budget: '15,000.00 USDT', kill: '正常', accent: 'green' }),
-    Object.freeze({ name: '均值回归', mode: 'DISABLED', status: '已暂停', signal: '无准入请求', confidence: '-', exposure: '0.00 USDT', budget: '6,000.00 USDT', kill: '已锁定', accent: 'orange' })
+    Object.freeze({ name: 'EMA + ADX 趋势', mode: 'SHADOW', status: '内置研究目录', signal: '等待研究信号', confidence: '-', exposure: '0.00 USDT', budget: '未分配', kill: '安全闸门', accent: 'cyan' }),
+    Object.freeze({ name: 'Donchian + ATR', mode: 'SHADOW', status: '内置研究目录', signal: '等待研究信号', confidence: '-', exposure: '0.00 USDT', budget: '未分配', kill: '安全闸门', accent: 'green' }),
+    Object.freeze({ name: '布林带 + RSI', mode: 'SHADOW', status: '内置研究目录', signal: '等待研究信号', confidence: '-', exposure: '0.00 USDT', budget: '未分配', kill: '安全闸门', accent: 'purple' }),
+    Object.freeze({ name: 'Buy & Hold', mode: 'SHADOW', status: '内置研究目录', signal: '等待研究信号', confidence: '-', exposure: '0.00 USDT', budget: '未分配', kill: '安全闸门', accent: 'cyan' })
   ]),
   signals: Object.freeze([
     Object.freeze({ time: '16:29:48', symbol: 'BTC/USDT', action: 'OPEN', source: 'STRATEGY', fingerprint: '7c82...96d1', effect: 'INCREASE_RISK', admission: 'CREATED', decision: 'ALLOW', reason: '结构突破已确认' }),
