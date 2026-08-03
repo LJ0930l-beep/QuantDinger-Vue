@@ -60,7 +60,7 @@
             v-if="model.scriptSourceId && sourceContractError"
             show-icon
             type="error"
-            :message="$t('strategyV2.compileFailed')" />
+            :message="sourceContractErrorMessage || $t('strategyV2.compileFailed')" />
           <div v-if="hasCurrentContract" class="strategy-v2-summary">
             <div class="strategy-v2-summary__head"><a-tag color="green">{{ $t('strategyV2.apiBadge') }}</a-tag><strong>{{ $t('strategyV2.manifestTitle') }}</strong></div>
             <p>{{ $t('strategyV2.manifestHint') }}</p>
@@ -344,6 +344,7 @@ export default {
       compiledManifest: {},
       sourceContractLoading: false,
       sourceContractError: false,
+      sourceContractErrorMessage: '',
       originalStrategy: null,
       notificationSettings: {},
       notificationChannels: ['browser', 'email', 'telegram', 'discord', 'webhook', 'phone'],
@@ -613,6 +614,7 @@ export default {
       this.sourceDetail = {}
       this.compiledManifest = {}
       this.sourceContractError = false
+      this.sourceContractErrorMessage = ''
       this.originalStrategy = null
       this.loading = true
       try {
@@ -717,7 +719,10 @@ export default {
             this.normalizeExecutionFields()
           }
         } catch (error) {
-          if (String(this.model.scriptSourceId) === sourceId) this.sourceContractError = true
+          if (String(this.model.scriptSourceId) === sourceId) {
+            this.sourceContractError = true
+            this.sourceContractErrorMessage = this.localizeError(error)
+          }
         } finally {
           if (String(this.model.scriptSourceId) === sourceId) this.sourceContractLoading = false
         }
@@ -734,6 +739,7 @@ export default {
         const manifest = this.parseObject(contractResult.response && contractResult.response.data && contractResult.response.data.manifest)
         this.compiledManifest = manifest
         this.sourceContractError = Boolean(contractResult.error) || !Object.keys(manifest).length
+        this.sourceContractErrorMessage = contractResult.error ? this.localizeError(contractResult.error) : ''
         if (!this.model.name || (applyDefaults && !this.isEdit)) {
           this.model.name = this.sourceDetail.name || this.sourceDetail.title || ''
         }
@@ -890,6 +896,13 @@ export default {
     templateOptionId (template) {
       return `template:${template.key}`
     },
+    localizeError (error) {
+      const responseData = error && error.response && error.response.data
+      const raw = error && (error.backendMessage || (responseData && (responseData.msg || responseData.message)) || error.message)
+      if (!raw) return ''
+      const key = String(raw)
+      return this.$te && this.$te(key) ? this.$t(key) : key
+    },
     async ensureTemplateSource () {
       const template = this.selectedTemplate
       if (!template) return this.model.scriptSourceId
@@ -924,6 +937,7 @@ export default {
       const sourceId = String(id)
       this.sourceContractLoading = true
       this.sourceContractError = false
+      this.sourceContractErrorMessage = ''
       try {
         const res = await compileScriptSource({ sourceId: Number(sourceId) })
         if (String(this.model.scriptSourceId) !== sourceId) return false
@@ -935,6 +949,7 @@ export default {
         if (String(this.model.scriptSourceId) === sourceId) {
           this.compiledManifest = {}
           this.sourceContractError = true
+          this.sourceContractErrorMessage = this.localizeError(error)
         }
         return false
       } finally {
@@ -1004,10 +1019,7 @@ export default {
         this.$message.success(this.$t(this.isEdit ? 'trading-assistant.messages.updateSuccess' : 'trading-assistant.messages.createSuccess'))
         this.$emit('saved')
       } catch (error) {
-        const rawMessage = error && (error.backendMessage || error.message)
-        const message = rawMessage && this.$te && this.$te(String(rawMessage))
-          ? this.$t(String(rawMessage))
-          : rawMessage
+        const message = this.localizeError(error)
         this.$message.error(message || this.$t(this.isEdit ? 'trading-assistant.messages.updateFailed' : 'trading-assistant.messages.createFailed'))
       } finally {
         this.saving = false
