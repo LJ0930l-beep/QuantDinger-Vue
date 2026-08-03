@@ -54,6 +54,18 @@ test('frontend connects to the backend TestNet readonly account without credenti
   assert.doesNotMatch(view, /GATE_TESTNET_API_KEY\s*=/)
 })
 
+test('frontend renders the built-in strategy catalog when the read-only catalog is ready', () => {
+  const view = readFileSync(new URL('../../src/views/quant-dashboard/index.vue', import.meta.url), 'utf8')
+  assert.match(view, /v-for="strategy in strategyCards"/)
+  assert.match(view, /catalog\.status !== 'READY'/)
+  assert.match(view, /'ema-adx-trend'/)
+  assert.match(view, /'donchian-atr'/)
+  assert.match(view, /'bollinger-rsi'/)
+  assert.match(view, /'buy-and-hold'/)
+  assert.match(view, /'smc-structure'/)
+  assert.match(view, /'ict-liquidity-displacement'/)
+})
+
 test('TestNet execution reuses a saved Gate credential and never accepts raw secrets', () => {
   const view = readFileSync(new URL('../../src/views/quant-dashboard/index.vue', import.meta.url), 'utf8')
   assert.match(view, /Gate TestNet 凭证<select v-model="testnetForm\.credential_id"/)

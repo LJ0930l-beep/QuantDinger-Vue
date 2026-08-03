@@ -214,7 +214,7 @@
     <section class="section-shell" aria-labelledby="strategy-heading">
       <div class="section-heading"><div><span class="section-kicker">策略工厂</span><h2 id="strategy-heading">策略卡片</h2></div><span class="mock-copy">仅用于视觉占位</span></div>
       <div class="strategy-grid">
-        <article v-for="strategy in dashboard.strategies" :key="strategy.name" class="strategy-card" :class="strategy.accent">
+        <article v-for="strategy in strategyCards" :key="strategy.key || strategy.name" class="strategy-card" :class="strategy.accent">
           <div class="strategy-title"><div><span class="mode-chip">{{ modeLabel(strategy.mode) }}</span><h3>{{ strategy.name }}</h3></div><span class="text-status" :class="strategy.status === '运行中' ? 'healthy' : 'warning'">{{ strategy.status }}</span></div>
           <dl><div><dt>最新信号</dt><dd>{{ strategy.signal }}</dd></div><div><dt>置信度</dt><dd>{{ strategy.confidence }}</dd></div><div><dt>当前敞口</dt><dd>{{ strategy.exposure }}</dd></div><div><dt>风险预算</dt><dd>{{ strategy.budget }}</dd></div></dl>
           <div class="strategy-footer"><span><a-icon type="safety" /> 熔断开关：<strong>{{ strategy.kill }}</strong></span><a-button class="table-action" type="link" size="small" icon="eye" @click="view(strategy.name)">查看</a-button></div>
@@ -379,6 +379,53 @@ export default {
     }
   },
   computed: {
+    strategyCards () {
+      const previewCards = Array.isArray(this.dashboard.strategies)
+        ? this.dashboard.strategies.map(strategy => ({ ...strategy, key: `mock:${strategy.name}` }))
+        : []
+      const catalog = this.strategyCatalog
+      if (!catalog || catalog.status !== 'READY' || !Array.isArray(catalog.strategies)) return previewCards
+
+      const names = {
+        'ema-adx-trend': 'EMA + ADX 趋势',
+        'donchian-atr': 'Donchian + ATR',
+        'bollinger-rsi': '布林带 + RSI',
+        'buy-and-hold': 'Buy & Hold',
+        'smc-structure': 'SMC 结构策略',
+        'ict-liquidity-displacement': 'ICT 流动性位移'
+      }
+      const accents = {
+        EMA_ADX_TREND: 'cyan',
+        DONCHIAN_ATR: 'green',
+        BOLLINGER_RSI: 'purple',
+        BUY_AND_HOLD: 'cyan',
+        SMC: 'purple',
+        ICT: 'purple'
+      }
+      const previewById = {
+        'smc-structure': previewCards.find(card => String(card.name || '').includes('SMC')),
+        'ict-liquidity-displacement': previewCards.find(card => String(card.name || '').includes('ICT'))
+      }
+      const builtIns = catalog.strategies
+        .filter(item => item && item.strategy_id)
+        .map(item => ({
+          key: `builtin:${item.strategy_id}`,
+          ...(previewById[item.strategy_id] || {
+            name: names[item.strategy_id] || item.strategy_id,
+            mode: 'SHADOW',
+            status: '内置研究目录',
+            signal: '等待研究信号',
+            confidence: '—',
+            exposure: '0.00 USDT',
+            budget: '未分配',
+            kill: '安全闸门',
+            accent: accents[item.family] || 'cyan'
+          }),
+          catalogVersion: item.version,
+          parameterNames: Array.isArray(item.parameter_names) ? item.parameter_names : []
+        }))
+      return builtIns
+    },
     gateAccountEvidenceTitle () {
       if (this.gateTestnetEnvironmentAccount && this.gateTestnetEnvironmentAccount.status === 'READY') return 'TESTNET · READ ONLY · READY'
       if (this.gateAccountLoading) return 'TESTNET · READING'
