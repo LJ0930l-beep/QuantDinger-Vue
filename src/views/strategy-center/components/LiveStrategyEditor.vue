@@ -299,7 +299,12 @@ const MARKET_SCOPE_ALIASES = {
   future: 'swap',
   futures: 'swap',
   perpetual: 'swap',
-  perp: 'swap'
+  perp: 'swap',
+  spot_perpetual: 'both',
+  spot_and_swap: 'both',
+  spot_swap: 'both',
+  spot_and_perpetual: 'both',
+  all: 'both'
 }
 const normalizeDirectionMode = value => {
   const normalized = String(value || '').trim().toLowerCase().replace(/-/g, '_')
