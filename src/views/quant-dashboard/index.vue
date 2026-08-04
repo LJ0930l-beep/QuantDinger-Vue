@@ -240,7 +240,7 @@
       <div class="section-heading"><div><span class="section-kicker">策略工厂</span><h2 id="strategy-heading">策略卡片</h2></div><span class="mock-copy">仅用于视觉占位</span></div>
       <div class="strategy-grid">
         <article v-for="strategy in strategyCards" :key="strategy.key || strategy.name" class="strategy-card" :class="strategy.accent">
-          <div class="strategy-title"><div><span class="mode-chip">{{ modeLabel(strategy.mode) }}</span><h3>{{ strategy.name }}</h3></div><span class="text-status" :class="strategy.status === '运行中' ? 'healthy' : 'warning'">{{ strategy.status }}</span></div>
+          <div class="strategy-title"><div><span class="mode-chip">{{ modeLabel(strategy.mode) }}</span><h3>{{ strategy.name }} <small v-if="strategy.scopeLabel" class="strategy-scope">{{ strategy.scopeLabel }}</small></h3></div><span class="text-status" :class="strategy.status === '运行中' ? 'healthy' : 'warning'">{{ strategy.status }}</span></div>
           <dl><div><dt>最新信号</dt><dd>{{ strategy.signal }}</dd></div><div><dt>置信度</dt><dd>{{ strategy.confidence }}</dd></div><div><dt>当前敞口</dt><dd>{{ strategy.exposure }}</dd></div><div><dt>风险预算</dt><dd>{{ strategy.budget }}</dd></div></dl>
           <div class="strategy-footer"><span><a-icon type="safety" /> 熔断开关：<strong>{{ strategy.kill }}</strong></span><a-button class="table-action" type="link" size="small" icon="eye" @click="view(strategy.name)">查看</a-button></div>
         </article>
@@ -461,7 +461,8 @@ export default {
           accent: 'cyan'
         }),
         catalogVersion: item.version,
-        parameterNames: Array.isArray(item.parameter_names) ? item.parameter_names : []
+        parameterNames: Array.isArray(item.parameter_names) ? item.parameter_names : [],
+        scopeLabel: this.strategyScopeLabel(item)
       })
       const completeRoster = canonicalIds.map(id => enrich(catalogById.get(id) || { strategy_id: id }))
       const extras = catalog.strategies
@@ -507,7 +508,8 @@ export default {
             accent: accents[item.family] || 'cyan'
           }),
           catalogVersion: item.version,
-          parameterNames: Array.isArray(item.parameter_names) ? item.parameter_names : []
+          parameterNames: Array.isArray(item.parameter_names) ? item.parameter_names : [],
+          scopeLabel: this.strategyScopeLabel(item)
         }))
       return builtIns
     },
@@ -1159,6 +1161,18 @@ export default {
     modeLabel (mode) {
       return ({ PAPER: '模拟盘', SHADOW: '影子模式', DISABLED: '已禁用' })[mode] || mode
     },
+    strategyScopeLabel (strategy) {
+      const timeframes = Array.isArray(strategy && strategy.supported_timeframes)
+        ? strategy.supported_timeframes.filter(Boolean)
+        : []
+      const markets = Array.isArray(strategy && strategy.supported_market_types)
+        ? strategy.supported_market_types.filter(Boolean)
+        : []
+      if (!timeframes.length && !markets.length) return ''
+      const marketLabels = { crypto: '加密', us_stock: '美股', forex: '外汇' }
+      const marketText = markets.map(item => marketLabels[item] || item).join('/')
+      return `${timeframes.join('/')} · ${marketText}`
+    },
     actionLabel (action) {
       return ({ OPEN: '开仓', INCREASE: '加仓', REDUCE: '减仓', CLOSE: '平仓', CANCEL: '撤单', EMERGENCY_CLOSE: '紧急平仓', PROTECTION: '保护单' })[action] || action
     },
@@ -1217,7 +1231,7 @@ h1, h2, h3, p { margin: 0; } h1, h2, h3 { color: var(--text) !important; } h1 { 
 .dashboard-grid { display: grid; gap: 14px; }.performance-risk-grid { grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); }.chart-shell { min-height: 300px; }.equity-chart { width: 100%; height: 230px; }.chart-footer { justify-content: flex-start; gap: 16px; padding-top: 3px; color: var(--muted); font-size: 11px; }.chart-footer strong { margin-left: auto; color: var(--purple); font-size: 11px; }.legend-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; }.legend-dot.equity { background: var(--cyan); }.legend-dot.pnl { background: var(--green); }
 .risk-summary-shell { background: linear-gradient(145deg, rgba(23, 35, 48, .96), rgba(17, 22, 30, .98)); }.summary-list { display: grid; gap: 1px; margin: 0; border: 1px solid var(--line); background: var(--line); }.summary-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px; background: rgba(7, 14, 20, .48); }.summary-list dt { color: var(--muted); font-size: 11px; }.summary-list dd { margin: 0; text-align: right; }.summary-list strong, .summary-list small { display: block; }.summary-list strong { font-size: 13px; }.summary-list small { margin-top: 3px; color: var(--muted); font-size: 10px; }.risk-callout { display: flex; gap: 8px; margin-top: 12px; padding: 10px; border: 1px solid rgba(82, 201, 140, .28); background: rgba(82, 201, 140, .06); color: #b6dbc8; font-size: 11px; line-height: 1.5; }.risk-callout .anticon { margin-top: 2px; color: var(--green); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); }.terminal-table { width: 100%; min-width: 1110px; border-collapse: collapse; font-size: 12px; }.terminal-table th { padding: 10px 12px; color: #a9bbc9; text-align: left; background: rgba(5, 11, 16, .65); font-size: 10px; letter-spacing: .6px; text-transform: uppercase; }.terminal-table td { padding: 10px 12px; border-top: 1px solid rgba(38, 56, 71, .7); white-space: nowrap; }.terminal-table tr:hover td { background: rgba(57, 198, 223, .045); }.pill.long { color: var(--green); }.pill.short { color: var(--orange); } code { color: var(--cyan); font-size: 11px; }
-.strategy-grid { display: grid; grid-template-columns: repeat(4, minmax(225px, 1fr)); gap: 10px; overflow-x: auto; }.strategy-card { min-width: 225px; padding: 15px; border: 1px solid var(--line); background: rgba(7, 14, 20, .4); }.strategy-card.purple { box-shadow: inset 2px 0 var(--purple); }.strategy-card.green { box-shadow: inset 2px 0 var(--green); }.strategy-card.orange { box-shadow: inset 2px 0 var(--orange); }.strategy-title { align-items: flex-start; justify-content: space-between; gap: 8px; }.mode-chip { margin-bottom: 7px; padding: 1px 6px; color: var(--muted); }.strategy-card dl, .detail-list, .risk-list { margin: 16px 0; }.strategy-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }.strategy-card dt, .detail-list dt, .risk-list dt { color: var(--muted); font-size: 10px; }.strategy-card dd, .detail-list dd, .risk-list dd { margin: 4px 0 0; font-size: 12px; }.strategy-footer { justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.strategy-grid { display: grid; grid-template-columns: repeat(4, minmax(225px, 1fr)); gap: 10px; overflow-x: auto; }.strategy-card { min-width: 225px; padding: 15px; border: 1px solid var(--line); background: rgba(7, 14, 20, .4); }.strategy-card.purple { box-shadow: inset 2px 0 var(--purple); }.strategy-card.green { box-shadow: inset 2px 0 var(--green); }.strategy-card.orange { box-shadow: inset 2px 0 var(--orange); }.strategy-title { align-items: flex-start; justify-content: space-between; gap: 8px; }.mode-chip { margin-bottom: 7px; padding: 1px 6px; color: var(--muted); }.strategy-scope { display: inline-block; margin-left: 6px; color: var(--cyan); font-size: 10px; font-weight: 600; white-space: nowrap; }.strategy-card dl, .detail-list, .risk-list { margin: 16px 0; }.strategy-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }.strategy-card dt, .detail-list dt, .risk-list dt { color: var(--muted); font-size: 10px; }.strategy-card dd, .detail-list dd, .risk-list dd { margin: 4px 0 0; font-size: 12px; }.strategy-footer { justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .signals-risk-grid { grid-template-columns: minmax(0, 1.7fr) minmax(300px, .8fr); }.health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.risk-list, .detail-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }.risk-list > div, .detail-list > div { padding: 12px; background: rgba(7, 14, 20, .55); }.risk-list small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 .pipeline { align-items: stretch; gap: 8px; overflow-x: auto; padding-bottom: 4px; }.pipeline-step { flex: 1 0 156px; position: relative; padding: 14px; border: 1px solid var(--line); background: rgba(7, 14, 20, .42); }.pipeline-step.green { box-shadow: inset 0 2px var(--green); }.pipeline-step.orange { box-shadow: inset 0 2px var(--orange); }.pipeline-step.purple { box-shadow: inset 0 2px var(--purple); }.pipeline-step.cyan { box-shadow: inset 0 2px var(--cyan); }.pipeline-index { color: var(--muted); font-size: 11px; }.pipeline-step h3 { margin: 10px 0 6px; }.pipeline-step p { min-height: 28px; color: var(--muted); font-size: 11px; }.pipeline-step strong { color: var(--cyan); font-size: 11px; }.pipeline-arrow { align-self: center; color: var(--muted); font-size: 22px; }.pipeline-cases { gap: 12px; flex-wrap: wrap; margin-top: 16px; color: var(--muted); font-size: 12px; }.pipeline-cases strong { font-size: 11px; }.admission-evidence { gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border: 1px solid rgba(57, 198, 223, .28); background: rgba(57, 198, 223, .04); color: var(--muted); font-size: 11px; }.admission-evidence .admission-label { color: var(--cyan); font-weight: 700; }.admission-evidence strong { font-size: 11px; }
 .timeline { position: relative; margin: 0; padding: 0 0 0 8px; list-style: none; }.timeline::before { position: absolute; top: 10px; bottom: 10px; left: 12px; width: 1px; background: var(--line); content: ''; }.timeline li { position: relative; display: grid; grid-template-columns: 90px 185px 1fr; gap: 12px; align-items: baseline; padding: 9px 0 9px 27px; }.timeline-dot { position: absolute; top: 15px; left: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 4px var(--surface-2); }.timeline-dot.green { background: var(--green); }.timeline-dot.orange { background: var(--orange); }.timeline-dot.purple { background: var(--purple); }.timeline-dot.risk { background: var(--red); }.timeline time { color: var(--muted); font-size: 11px; }.timeline strong { font-size: 12px; }.timeline p { color: #b9c8d3; font-size: 12px; }
