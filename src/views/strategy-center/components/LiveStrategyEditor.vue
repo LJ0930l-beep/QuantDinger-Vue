@@ -344,6 +344,11 @@ export default {
       credentials: [],
       sourceDetail: {},
       compiledManifest: {},
+      // Every source selection owns a monotonically increasing request token.
+      // A slow compile/detail response must never overwrite the currently
+      // selected template (this was especially visible when switching from
+      // a long-running built-in template to a 5m/15m template).
+      sourceDetailRequestVersion: 0,
       sourceContractLoading: false,
       sourceContractError: false,
       sourceContractErrorMessage: '',
@@ -611,6 +616,7 @@ export default {
       }
     },
     async initialize () {
+      this.sourceDetailRequestVersion += 1
       this.step = 0
       this.model = this.defaultModel()
       this.sourceDetail = {}
@@ -686,6 +692,11 @@ export default {
       // `template:[object PointerEvent]`.
       const sourceId = normalizeStrategySourceSelection(id, this.model.scriptSourceId)
       if (!sourceId) return
+      const requestVersion = ++this.sourceDetailRequestVersion
+      const isCurrentRequest = () => (
+        requestVersion === this.sourceDetailRequestVersion &&
+        String(this.model.scriptSourceId) === sourceId
+      )
       if (applyDefaults && !this.isEdit) this.model.directionMode = ''
       this.compiledManifest = {}
       this.sourceContractError = false
@@ -696,7 +707,7 @@ export default {
       if (template) {
         try {
           const contractResult = await compileScriptSource({ code: template.code })
-          if (String(this.model.scriptSourceId) !== sourceId) return
+          if (!isCurrentRequest()) return
           const manifest = this.parseObject(contractResult && contractResult.data && contractResult.data.manifest)
           this.sourceDetail = {
             name: template.title,
@@ -719,12 +730,12 @@ export default {
             this.normalizeExecutionFields()
           }
         } catch (error) {
-          if (String(this.model.scriptSourceId) === sourceId) {
+          if (isCurrentRequest()) {
             this.sourceContractError = true
             this.sourceContractErrorMessage = this.localizeError(error)
           }
         } finally {
-          if (String(this.model.scriptSourceId) === sourceId) this.sourceContractLoading = false
+          if (isCurrentRequest()) this.sourceContractLoading = false
         }
         return
       }
@@ -734,7 +745,7 @@ export default {
       try {
         const res = await getScriptSourceDetail(sourceId)
         const contractResult = await contractRequest
-        if (String(this.model.scriptSourceId) !== sourceId) return
+        if (!isCurrentRequest()) return
         this.sourceDetail = (res && res.data) || res || {}
         const manifest = this.parseObject(contractResult.response && contractResult.response.data && contractResult.response.data.manifest)
         this.compiledManifest = manifest
@@ -751,10 +762,10 @@ export default {
           this.normalizeExecutionFields()
         }
       } catch (error) {
-        if (String(this.model.scriptSourceId) === sourceId) this.sourceContractError = true
+        if (isCurrentRequest()) this.sourceContractError = true
         throw error
       } finally {
-        if (String(this.model.scriptSourceId) === sourceId) this.sourceContractLoading = false
+        if (isCurrentRequest()) this.sourceContractLoading = false
       }
     },
     async loadStrategy () {
@@ -906,8 +917,24 @@ export default {
     async ensureTemplateSource () {
       const template = this.selectedTemplate
       if (!template) return this.model.scriptSourceId
+      const templateSelection = `template:${template.key}`
       this.sourceContractLoading = true
       try {
+        // Reuse a source previously materialized from this template.  This
+        // keeps repeated opens/retries idempotent and avoids a growing list of
+        // duplicate user sources for the same built-in strategy.
+        const existing = this.sources.find(source => {
+          const metadata = this.parseObject(source && source.metadata)
+          const key = source && (source.template_key || source.templateKey || metadata.template_key || metadata.templateKey)
+          return String(key || '') === String(template.key) && (source.id || source.source_id)
+        })
+        if (existing && String(this.model.scriptSourceId) === templateSelection) {
+          const sourceId = existing.id || existing.source_id
+          this.$set(this.model, 'scriptSourceId', String(sourceId))
+          await this.loadSourceDetail(String(sourceId), false)
+          if (String(this.model.scriptSourceId) !== String(sourceId)) return null
+          return sourceId
+        }
         const res = await createScriptSource({
           name: template.title,
           description: template.desc,
@@ -920,9 +947,13 @@ export default {
         const item = res && res.data
         const sourceId = item && (item.id || item.source_id)
         if (!sourceId) throw new Error('template source was not created')
+        // The user may have selected another source while the create request
+        // was in flight.  Do not let the old response silently replace it.
+        if (String(this.model.scriptSourceId) !== templateSelection) return null
         this.sourceDetail = item
         this.$set(this.model, 'scriptSourceId', String(sourceId))
         await this.loadSources()
+        await this.loadSourceDetail(String(sourceId), false)
         this.$message.success('已将内置策略复制到我的策略，可继续配置。')
         return sourceId
       } catch (error) {
