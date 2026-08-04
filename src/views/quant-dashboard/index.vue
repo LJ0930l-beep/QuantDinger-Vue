@@ -315,6 +315,14 @@
         <span>{{ productRehearsal.canary_gate.reasons.length ? productRehearsal.canary_gate.reasons.join(' · ') : '证据完整' }}</span>
         <span class="purple">Live OFF · 需额外样本后才能晋级</span>
       </div>
+      <div v-if="productRehearsal && productRehearsal.deterministic_backtest && productRehearsal.deterministic_backtest.cost_trace_fingerprint" class="admission-evidence cost-evidence" data-testid="product-cost-evidence">
+        <span class="admission-label">回测成本证据</span>
+        <strong class="cyan">已绑定</strong>
+        <span>策略成本版本 {{ productRehearsal.deterministic_backtest.costs && productRehearsal.deterministic_backtest.costs.length ? productRehearsal.deterministic_backtest.costs[0].policy_version : '已绑定策略' }}</span>
+        <span>成交成本 {{ productRehearsal.deterministic_backtest.costs ? productRehearsal.deterministic_backtest.costs.length : 0 }} 笔</span>
+        <span v-if="productRehearsal.deterministic_backtest.costs && productRehearsal.deterministic_backtest.costs.length">手续费 {{ productRehearsal.deterministic_backtest.costs[0].fee }} · 资金费 {{ productRehearsal.deterministic_backtest.costs[0].funding }}</span>
+        <code>{{ productRehearsal.deterministic_backtest.cost_trace_fingerprint.slice(0, 16) }}…</code>
+      </div>
     </section>
 
     <section class="dashboard-grid health-grid">
