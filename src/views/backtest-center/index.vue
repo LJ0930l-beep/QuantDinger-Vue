@@ -90,7 +90,16 @@
                 </div>
               </a-form-item>
               <a-form-item v-if="mode === 'portfolio' && form.leverageEnabled" :label="$t('strategyV2.leverageMultiplier')">
-                <a-input-number v-model="form.leverage" :min="1" :max="maxLeverage" :step="0.5" class="full-width" />
+                <a-input-number
+                  v-model="form.leverage"
+                  :min="strategyLeverageFloor"
+                  :max="strategyLeverageCap"
+                  :step="strategyLeverageFloor >= 50 ? 1 : 0.5"
+                  class="full-width"
+                />
+                <div class="leverage-contract-hint">
+                  {{ strategyLeverageFloor }}x–{{ strategyLeverageCap }}x
+                </div>
               </a-form-item>
             </div>
 
@@ -416,8 +425,20 @@ export default {
     leverageAllowed () {
       return Boolean(this.manifest && this.manifest.leverageAllowed)
     },
-    maxLeverage () {
-      return Number((this.manifest && this.manifest.maxLeverage) || 1)
+    strategyLeverageFloor () {
+      if (!this.leverageAllowed) return 1
+      const value = Number(this.manifest && this.manifest.minLeverage)
+      return Number.isFinite(value) && value >= 1 ? value : 1
+    },
+    strategyLeverageCap () {
+      if (!this.leverageAllowed) return 1
+      const value = Number(this.manifest && this.manifest.maxLeverage)
+      return Number.isFinite(value) && value >= this.strategyLeverageFloor ? value : this.strategyLeverageFloor
+    },
+    leverageContractInvalid () {
+      if (!this.form.leverageEnabled || !this.leverageAllowed) return false
+      const value = Number(this.form.leverage)
+      return !Number.isFinite(value) || value < this.strategyLeverageFloor || value > this.strategyLeverageCap
     },
     manifestFrequency () {
       const subscriptions = (this.manifest && this.manifest.subscriptions) || []
@@ -464,7 +485,7 @@ export default {
       })
     },
     runDisabled () {
-      return !this.manifest || this.backtestRangeExceeded || (this.mode === 'factor' && !this.factorCompatible)
+      return !this.manifest || this.backtestRangeExceeded || this.leverageContractInvalid || (this.mode === 'factor' && !this.factorCompatible)
     },
     strategyTypeLabel () {
       const type = String((this.manifest && this.manifest.strategyType) || 'cta')
@@ -579,6 +600,12 @@ export default {
     },
     mode (value) {
       this.handleModeChange(value)
+    },
+    'form.leverageEnabled' (value) {
+      if (value && this.leverageAllowed) this.normalizeLeverage()
+    },
+    'form.leverage' () {
+      if (this.form.leverageEnabled && this.leverageAllowed) this.normalizeLeverage()
     }
   },
   async mounted () {
@@ -765,6 +792,9 @@ export default {
       if (!isCurrentSelection()) return
       this.manifest = compiled.data && compiled.data.manifest
       this.backtestRangePolicy = compiled.data && compiled.data.backtestRangePolicy
+      if (this.manifest && this.manifest.leverageAllowed) {
+        this.form.leverage = Number(this.manifest.minLeverage || 1)
+      }
       this.applyBacktestRangePolicy()
       this.params = this.paramDefinitions.reduce((output, item) => {
         output[item.name] = item.default
@@ -817,6 +847,13 @@ export default {
     },
     setParam (name, value) {
       this.params = { ...this.params, [name]: value }
+    },
+    normalizeLeverage () {
+      const value = Number(this.form.leverage)
+      const bounded = Number.isFinite(value)
+        ? Math.min(this.strategyLeverageCap, Math.max(this.strategyLeverageFloor, value))
+        : this.strategyLeverageFloor
+      if (bounded !== this.form.leverage) this.form.leverage = bounded
     },
     disabledStartDate (current) {
       if (!current || !this.form.endDate) return false
@@ -1092,6 +1129,7 @@ export default {
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
 .range-limit-alert { margin: 0 0 14px; }
 .switch-row { display: flex; align-items: center; gap: 8px; min-height: 32px; color: #7c8ca1; font-size: 11px; }
+.leverage-contract-hint { margin-top: 5px; color: #7c8ca1; font-size: 11px; }
 .params-section { margin: 2px 0 14px; padding-top: 12px; border-top: 1px solid #eef2f6; }
 .factor-contract-alert { margin: 10px 0 14px; }
 .subheading h3 { margin: 0; color: #26364c; font-size: 14px; }
