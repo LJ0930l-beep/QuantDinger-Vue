@@ -323,6 +323,15 @@
         <span v-if="productRehearsal.deterministic_backtest.costs && productRehearsal.deterministic_backtest.costs.length">手续费 {{ productRehearsal.deterministic_backtest.costs[0].fee }} · 资金费 {{ productRehearsal.deterministic_backtest.costs[0].funding }}</span>
         <code>{{ productRehearsal.deterministic_backtest.cost_trace_fingerprint.slice(0, 16) }}…</code>
       </div>
+      <div v-if="productRehearsal && productRehearsal.deterministic_backtest && productRehearsal.deterministic_backtest.execution_evidence" class="admission-evidence execution-evidence" data-testid="product-execution-evidence">
+        <span class="admission-label">执行证据</span>
+        <strong class="cyan">已绑定</strong>
+        <span>估值币种 {{ productRehearsal.deterministic_backtest.execution_evidence.valuation_ccy }}</span>
+        <span>成交事件 {{ productRehearsal.deterministic_backtest.execution_evidence.applied_fill_ids ? productRehearsal.deterministic_backtest.execution_evidence.applied_fill_ids.length : 0 }} 笔</span>
+        <span>资金费 {{ productRehearsal.deterministic_backtest.execution_evidence.funding }}</span>
+        <span v-if="productRehearsal.deterministic_backtest.execution_evidence.fees_by_asset && productRehearsal.deterministic_backtest.execution_evidence.fees_by_asset.length">手续费资产 {{ formatExecutionFees(productRehearsal.deterministic_backtest.execution_evidence.fees_by_asset) }}</span>
+        <code>{{ productRehearsal.deterministic_backtest.execution_evidence.execution_trace_fingerprint.slice(0, 16) }}…</code>
+      </div>
     </section>
 
     <section class="dashboard-grid health-grid">
@@ -1195,6 +1204,9 @@ export default {
     },
     decisionLabel (decision) {
       return ({ ALLOW: '允许', DENY: '拒绝', '-': '-' })[decision] || decision
+    },
+    formatExecutionFees (fees) {
+      return (fees || []).map(item => `${item.asset}:${item.amount}`).join(' · ')
     },
     eventTypeLabel (type) {
       return ({ ENTRY_ADMITTED: '准入成功', CANCEL_ADMITTED: '撤单准入', RISK_ALLOWED: '风控允许', RISK_DENIED: '风控拒绝', RESERVATION_CREATED: '预留已创建', OUTBOX_CREATED: '事件已写入', RECOVERY_COMPLETED: '恢复完成', RECONCILIATION_HEALTHY: '对账健康' })[type] || type
