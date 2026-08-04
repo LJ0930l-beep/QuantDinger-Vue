@@ -334,6 +334,9 @@ export default {
       source: null,
       manifest: null,
       backtestRangePolicy: null,
+      // Prevent a slow detail/compile response from replacing a newer source
+      // selection in the backtest form.
+      sourceSelectionVersion: 0,
       params: {},
       result: null,
       factorResult: null,
@@ -739,6 +742,8 @@ export default {
       this.$nextTick(() => this.resizeEquityChart())
     },
     async selectSource (sourceId) {
+      const selectionVersion = ++this.sourceSelectionVersion
+      const isCurrentSelection = () => selectionVersion === this.sourceSelectionVersion
       this.result = null
       this.factorResult = null
       this.selectedRun = null
@@ -750,11 +755,14 @@ export default {
         if (!template) return
         resolvedSourceId = await this.ensureTemplateSource(template)
         if (!resolvedSourceId) return
+        if (!isCurrentSelection()) return
         this.form.sourceId = Number(resolvedSourceId)
       }
       const response = await getScriptSourceDetail(resolvedSourceId)
+      if (!isCurrentSelection()) return
       this.source = response.data
       const compiled = await compileScriptSource({ sourceId: Number(resolvedSourceId) })
+      if (!isCurrentSelection()) return
       this.manifest = compiled.data && compiled.data.manifest
       this.backtestRangePolicy = compiled.data && compiled.data.backtestRangePolicy
       this.applyBacktestRangePolicy()
@@ -769,7 +777,11 @@ export default {
       return this.$t(item.asset_type === 'portfolio_strategy' ? 'strategyV2.portfolio' : 'strategyV2.cta')
     },
     async ensureTemplateSource (template) {
-      const existing = this.sources.find(item => String(item.template_key || '') === String(template.key))
+      const existing = this.sources.find(item => {
+        const metadata = this.parseObject(item && item.metadata)
+        const key = item && (item.template_key || item.templateKey || metadata.template_key || metadata.templateKey)
+        return String(key || '') === String(template.key)
+      })
       if (existing && existing.id) return existing.id
       try {
         const response = await createScriptSource({
