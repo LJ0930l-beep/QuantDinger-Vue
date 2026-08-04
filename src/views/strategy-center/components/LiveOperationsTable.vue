@@ -182,7 +182,7 @@
             </div>
             <div>
               <span>{{ $t('strategyCenter.console.leverage') }}</span>
-              <strong>{{ leverageDisplay }}</strong>
+              <strong :class="{ 'metric-invalid': gateLeverageInvalid }">{{ leverageDisplay }}</strong>
               <small>{{ leverageMarketLabel }}</small>
             </div>
           </div>
@@ -288,6 +288,7 @@ import TradingRecords from './TradingRecords.vue'
 import StrategyReviewReport from './StrategyReviewReport.vue'
 import StrategyLogs from './StrategyLogs.vue'
 import { getExchangeDisplayName } from '@/utils/exchangeCredential'
+import { evaluateGateLeverage } from '@/utils/gateLeverageStatus'
 import {
   normalizeTimestampMilliseconds,
   strategyExchangeId,
@@ -383,6 +384,7 @@ export default {
     },
     leverageDisplay () {
       if (!this.isLiveFinancial) return '—'
+      if (this.gateLeverageInvalid) return this.$t('strategyV2.gateLeverageContractInvalid')
       return `${strategyLeverage(this.selectedStrategy).toLocaleString(undefined, { maximumFractionDigits: 2 })}×`
     },
     leverageMarketLabel () {
@@ -391,6 +393,16 @@ export default {
       return marketType === 'spot'
         ? this.$t('strategyCenter.console.spotMarket')
         : `${this.$t('strategyCenter.console.swapMarket')} · Gate 50–100x · ${this.$t('strategyCenter.console.exchangeLeverageUnverified')}`
+    },
+    gateLeverageInvalid () {
+      if (!this.selectedStrategy || !this.isLiveFinancial) return false
+      const config = this.tradingConfig(this.selectedStrategy)
+      return !evaluateGateLeverage({
+        exchange: strategyExchangeId(this.selectedStrategy),
+        marketType: config.market_type || this.selectedStrategy.market_type,
+        leverageEnabled: config.leverage_enabled,
+        leverage: config.leverage || this.selectedStrategy.leverage
+      }).valid
     }
   },
   watch: {
@@ -517,12 +529,12 @@ export default {
     leverageContractIssue (strategy) {
       if (!strategy || this.executionMode(strategy) !== 'live') return false
       const config = this.tradingConfig(strategy)
-      const marketType = String(config.market_type || strategy.market_type || '').trim().toLowerCase()
-      const exchange = strategyExchangeId(strategy)
-      if (exchange !== 'gate' || marketType !== 'swap') return false
-      if (!config.leverage_enabled) return false
-      const leverage = Number(config.leverage || strategy.leverage || 0)
-      return !Number.isFinite(leverage) || leverage < 50 || leverage > 100
+      return !evaluateGateLeverage({
+        exchange: strategyExchangeId(strategy),
+        marketType: config.market_type || strategy.market_type,
+        leverageEnabled: config.leverage_enabled,
+        leverage: config.leverage || strategy.leverage
+      }).valid
     },
     pnlClass (value) { const number = Number(value || 0); return number > 0 ? 'profit' : number < 0 ? 'loss' : '' },
     formatPnl (value) {
@@ -618,6 +630,7 @@ export default {
 .performance-strip > div { min-height: 72px; }
 .financial-strip span,.performance-strip span { display: block; margin-bottom: 4px; overflow: hidden; color: #7e8896; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .financial-strip strong,.performance-strip strong { display: block; overflow: hidden; color: #202a37; font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.financial-strip strong.metric-invalid { color: #cf1322; font-size: 12px; white-space: normal; }
 .financial-strip small,.performance-strip small { display: block; margin-top: 3px; color: #98a0ab; font-size: 10px; font-weight: 500; line-height: 1.3; }
 .financial-strip .primary-financial-card { border-color: color-mix(in srgb, var(--primary-color, #1890ff) 32%, #e2e7ee); background: color-mix(in srgb, var(--primary-color, #1890ff) 5%, #fff); }
 .financial-strip .primary-financial-card strong { font-size: 18px; }
