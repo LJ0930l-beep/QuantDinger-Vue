@@ -28,25 +28,36 @@ export const QUICK_TRADE_EXCHANGE_IDS = new Set([
   'htx'
 ])
 
+export function normalizeExchangeCredentialId (value) {
+  const raw = String(value || '').trim().toLowerCase()
+  const aliases = {
+    gateio: 'gate',
+    'gate.io': 'gate',
+    okex: 'okx',
+    huobi: 'htx'
+  }
+  return aliases[raw] || raw
+}
+
 export function isCryptoExchangeCredential (cred) {
-  return CRYPTO_EXCHANGE_IDS.has(String(cred?.exchange_id || '').trim().toLowerCase())
+  return CRYPTO_EXCHANGE_IDS.has(normalizeExchangeCredentialId(cred?.exchange_id))
 }
 
 export function filterCryptoExchangeCredentials (credentials, exchangeId) {
   const selectedExchangeId = String(exchangeId || '').trim().toLowerCase()
   return (Array.isArray(credentials) ? credentials : []).filter(cred => {
-    const credentialExchangeId = String(cred?.exchange_id || '').trim().toLowerCase()
+    const credentialExchangeId = normalizeExchangeCredentialId(cred?.exchange_id)
     return CRYPTO_EXCHANGE_IDS.has(credentialExchangeId) &&
       (!selectedExchangeId || credentialExchangeId === selectedExchangeId)
   })
 }
 
 export function isQuickTradeExchangeCredential (cred) {
-  return QUICK_TRADE_EXCHANGE_IDS.has(String(cred?.exchange_id || '').trim().toLowerCase())
+  return QUICK_TRADE_EXCHANGE_IDS.has(normalizeExchangeCredentialId(cred?.exchange_id))
 }
 
 export function getExchangeDisplayName (exchangeId) {
-  const id = String(exchangeId || '').trim().toLowerCase()
+  const id = normalizeExchangeCredentialId(exchangeId)
   if (!id) return '--'
   return CRYPTO_EXCHANGE_DISPLAY_NAMES[id] || id.toUpperCase()
 }

@@ -280,6 +280,7 @@ import { formatExchangeCredentialLabel, getExchangeDisplayName } from '@/utils/e
 import { extractScriptParamsFromCode, normalizeScriptTemplate } from '@/views/strategy-ide/components/scriptTemplateCatalog'
 import { strategyDisplay, strategyMeta, strategyTitle } from '@/constants/quantCatalog'
 import { normalizeStrategySourceSelection } from '@/utils/strategySourceSelection'
+import { normalizeExchangeId } from '@/utils/marketContext'
 
 const DEFAULT_CHANNELS = ['browser', 'email']
 const CRYPTO_EXCHANGES = ['binance', 'bitget', 'bybit', 'okx', 'gate', 'htx']
@@ -514,7 +515,7 @@ export default {
     },
     compatibleCredentials () {
       return this.credentials.filter(credential => {
-        const exchange = String(credential.exchange_id || '').toLowerCase()
+        const exchange = normalizeExchangeId(credential.exchange_id)
         if (this.isPortfolioStrategy) return exchange === 'alpaca'
         if (this.marketCategory === 'Crypto') {
           if (!LIVE_CRYPTO_EXCHANGES.has(exchange)) return false
@@ -543,7 +544,7 @@ export default {
     },
     selectedCredentialExchange () {
       const credential = this.credentials.find(item => String(item.id) === String(this.model.credentialId))
-      return String((credential && credential.exchange_id) || '')
+      return normalizeExchangeId(credential && credential.exchange_id)
     },
     selectedCredential () {
       return this.credentials.find(item => String(item.id) === String(this.model.credentialId)) || null

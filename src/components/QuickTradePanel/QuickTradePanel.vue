@@ -427,7 +427,7 @@
 <script>
 import { mapState } from 'vuex'
 import { listExchangeCredentials } from '@/api/credentials'
-import { formatExchangeCredentialLabel, isQuickTradeExchangeCredential } from '@/utils/exchangeCredential'
+import { formatExchangeCredentialLabel, isQuickTradeExchangeCredential, normalizeExchangeCredentialId } from '@/utils/exchangeCredential'
 import { evaluateGateLeverage, leverageBoundsForVenue } from '@/utils/gateLeverageStatus'
 import ExchangeAccountModal from '@/components/ExchangeAccountModal/ExchangeAccountModal.vue'
 import { placeQuickOrder, getQuickTradeBalance, getQuickTradePosition, getQuickTradeHistory, closeQuickTradePosition } from '@/api/quick-trade'
@@ -547,7 +547,7 @@ export default {
       return this.isCryptoMarket && this.tradeMode === 'swap'
     },
     selectedCredentialExchange () {
-      return String((this.selectedCredential && this.selectedCredential.exchange_id) || '').trim().toLowerCase()
+      return normalizeExchangeCredentialId(this.selectedCredential && this.selectedCredential.exchange_id)
     },
     leverageBounds () {
       return leverageBoundsForVenue({
