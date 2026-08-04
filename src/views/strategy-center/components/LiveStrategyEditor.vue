@@ -279,6 +279,7 @@ import { getNotificationSettings } from '@/api/user'
 import { formatExchangeCredentialLabel, getExchangeDisplayName } from '@/utils/exchangeCredential'
 import { extractScriptParamsFromCode, normalizeScriptTemplate } from '@/views/strategy-ide/components/scriptTemplateCatalog'
 import { strategyDisplay, strategyMeta, strategyTitle } from '@/constants/quantCatalog'
+import { normalizeStrategySourceSelection } from '@/utils/strategySourceSelection'
 
 const DEFAULT_CHANNELS = ['browser', 'email']
 const CRYPTO_EXCHANGES = ['binance', 'bitget', 'bybit', 'okx', 'gate', 'htx']
@@ -682,10 +683,8 @@ export default {
       // selected through the popup.  v-model has already been updated in
       // that case; never stringify the event into a fake source id such as
       // `template:[object PointerEvent]`.
-      const selectedId = id && typeof id === 'object' ? this.model.scriptSourceId : id
-      if (!selectedId) return
-      const sourceId = String(selectedId)
-      if (sourceId.includes('[object PointerEvent]') || sourceId === '[object Object]') return
+      const sourceId = normalizeStrategySourceSelection(id, this.model.scriptSourceId)
+      if (!sourceId) return
       if (applyDefaults && !this.isEdit) this.model.directionMode = ''
       this.compiledManifest = {}
       this.sourceContractError = false
