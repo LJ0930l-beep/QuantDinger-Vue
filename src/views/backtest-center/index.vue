@@ -77,6 +77,30 @@
               <a-form-item v-if="mode === 'portfolio'" :label="$t('backtest-center.initialCapital')">
                 <a-input-number v-model="form.initialCapital" :min="10" class="full-width" />
               </a-form-item>
+              <a-form-item :label="$t('strategyV2.frequency')">
+                <a-select
+                  v-model="form.frequency"
+                  class="full-width"
+                  data-testid="backtest-frequency-select"
+                  :placeholder="manifestFrequency"
+                >
+                  <a-select-option v-for="f in availableFrequencies" :key="f" :value="f">{{ f }}</a-select-option>
+                </a-select>
+              </a-form-item>
+              <a-form-item :label="$t('strategyV2.universe')">
+                <a-select
+                  v-model="form.symbol"
+                  class="full-width"
+                  show-search
+                  data-testid="backtest-symbol-select"
+                  allow-clear
+                  :placeholder="universeLabel"
+                >
+                  <a-select-option v-for="s in availableSymbols" :key="s.id" :value="s.id">
+                    {{ s.label }}
+                  </a-select-option>
+                </a-select>
+              </a-form-item>
               <a-form-item :label="$t('backtest-center.commission')">
                 <a-input-number v-model="form.commission" :min="0" :max="1" :step="0.0001" class="full-width" />
               </a-form-item>
@@ -296,6 +320,7 @@
             <span class="run-card__status" :class="`status-${item.result_status || 'unknown'}`">{{ historyStatusLabel(item) }}</span>
             <span class="run-card__metrics">
               <b :class="historyReturnTone(item)">{{ formatPercent(item.total_return) }}</b>
+              <b :class="historyReturnTone(item)" class="run-card__amount">${{ formatAmount(historyReturnAmount(item)) }}</b>
               <small>{{ $t('strategyV2.backtest.executions') }} {{ item.total_executions || 0 }} · {{ $t('strategyV2.backtest.closedTrades') }} {{ item.total_trades || 0 }}</small>
             </span>
           </template>
@@ -367,7 +392,10 @@ export default {
         commission: 0.0005,
         slippage: 0.0005,
         leverageEnabled: false,
-        leverage: 1
+        leverage: 1,
+        frequency: '',    // user-selectable timeframe (overrides strategy default)
+        symbol: '',       // user-selectable instrument (overrides strategy default)
+        marketType: 'spot'  // 'spot' or 'swap'
       },
       factorForm: {
         factorId: 'momentum_20',
@@ -444,6 +472,40 @@ export default {
       const subscriptions = (this.manifest && this.manifest.subscriptions) || []
       return (this.manifest && this.manifest.primaryFrequency) || (subscriptions[0] && subscriptions[0].frequency) || '-'
     },
+    availableFrequencies () {
+      // List from source.metadata.suggested_timeframe or fallback
+      const meta = (this.source && this.source.metadata) || {}
+      const s = meta.suggested_timeframe || meta.suggestedTimeframe || ''
+      if (typeof s === 'string' && s.trim()) {
+        return s.split(',').map(x => x.trim()).filter(Boolean)
+      }
+      return ['1m', '5m', '15m', '30m', '1h', '4h', '1d']
+    },
+    availableSymbols () {
+      // Extract from manifest.universe.instruments
+      const universe = (this.manifest && this.manifest.universe) || {}
+      const instruments = Array.isArray(universe.instruments) ? universe.instruments : []
+      if (instruments.length === 0) {
+        // Default common crypto symbols
+        return [
+          { id: 'Crypto:BTC/USDT@spot', label: 'BTC/USDT · 现货', marketType: 'spot' },
+          { id: 'Crypto:ETH/USDT@spot', label: 'ETH/USDT · 现货', marketType: 'spot' },
+          { id: 'Crypto:BTC/USDT@swap', label: 'BTC/USDT · 永续', marketType: 'swap' },
+          { id: 'Crypto:ETH/USDT@swap', label: 'ETH/USDT · 永续', marketType: 'swap' }
+        ]
+      }
+      return instruments.map(i => ({
+        id: typeof i === 'string' ? i : (i.value || i.symbol || JSON.stringify(i)),
+        label: typeof i === 'string' ? i : (i.symbol || i.value || ''),
+        marketType: (typeof i === 'object' && i.marketType) || (String(i).includes('@swap') ? 'swap' : 'spot')
+      }))
+    },
+    selectedMarketType () {
+      // Auto-derive from selected symbol, or user default
+      if (this.form.symbol && this.form.symbol.includes('@swap')) return 'swap'
+      if (this.form.symbol && this.form.symbol.includes('@spot')) return 'spot'
+      return this.form.marketType || 'spot'
+    },
     backtestRangeLimitDays () {
       if (!this.backtestRangePolicy) return null
       const value = Number(this.mode === 'factor'
@@ -508,6 +570,7 @@ export default {
       if (!this.result) return []
       return [
         { key: 'return', label: this.$t('backtest-center.metrics.totalReturn'), value: this.formatPercent(this.result.totalReturn), tone: Number(this.result.totalReturn) >= 0 ? 'positive' : 'negative' },
+        { key: 'returnAmount', label: this.$t('backtest-center.metrics.totalReturnAmount') || '总收益额', value: '$' + this.formatAmount((Number(this.result.totalReturn) / 100) * Number(this.result.initialCapital || 1000)), tone: Number(this.result.totalReturn) >= 0 ? 'positive' : 'negative' },
         { key: 'benchmark', label: this.$t('strategyV2.backtest.benchmarkReturn'), value: this.result.benchmarkStatus === 'available' ? this.formatPercent(this.result.benchmarkTotalReturn) : '-', tone: Number(this.result.benchmarkTotalReturn) >= 0 ? 'positive' : 'negative' },
         { key: 'excess', label: this.$t('strategyV2.backtest.excessReturn'), value: this.result.benchmarkStatus === 'available' ? this.formatPercent(this.result.excessReturn) : '-', tone: Number(this.result.excessReturn) >= 0 ? 'positive' : 'negative' },
         { key: 'drawdown', label: this.$t('backtest-center.metrics.maxDrawdown'), value: this.formatPercent(this.result.maxDrawdown), tone: 'negative' },
@@ -906,6 +969,11 @@ export default {
       this.selectedRun = null
       this.startRunTimer()
       try {
+        const strategyParams = {
+          ...this.params,
+          frequency: this.form.frequency || (this.manifest && this.manifest.primaryFrequency) || '',
+          symbol: this.form.symbol || (this.manifest && this.manifest.universe && this.manifest.universe.instruments && this.manifest.universe.instruments[0] && this.manifest.universe.instruments[0].value) || ''
+        }
         const response = await runStrategyBacktest({
           sourceId: this.form.sourceId,
           startDate: this.form.startDate.format('YYYY-MM-DD'),
@@ -915,7 +983,7 @@ export default {
           slippage: this.form.slippage,
           leverageEnabled: this.form.leverageEnabled,
           leverage: this.form.leverageEnabled ? this.form.leverage : 1,
-          params: this.params
+          params: strategyParams
         })
         this.result = response.data
         this.selectedRun = { id: response.data && response.data.runId }
@@ -1063,6 +1131,17 @@ export default {
     formatPercent (value, signed = true) {
       const number = Number(value || 0)
       return `${signed && number > 0 ? '+' : ''}${number.toFixed(2)}%`
+    },
+    formatAmount (value) {
+      const number = Number(value || 0)
+      const sign = number > 0 ? '+' : number < 0 ? '-' : ''
+      const abs = Math.abs(number)
+      return `${sign}${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    },
+    historyReturnAmount (item) {
+      const pct = Number(item && item.total_return || 0)
+      const cap = Number(item && (item.initial_capital || item.initialCapital) || 1000)
+      return (pct / 100) * cap
     },
     formatRate (value) {
       return `${(Number(value || 0) * 100).toFixed(3)}%`
