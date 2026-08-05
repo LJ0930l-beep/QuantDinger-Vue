@@ -68,6 +68,27 @@ export const asyncRouterMap = [
         component: () => import('@/views/broker-accounts'),
         meta: { title: 'menu.dashboard.brokerAccounts', keepAlive: true, icon: 'bank', permission: ['dashboard'] }
       },
+      // Trading environment switcher (Paper / Shadow / TestNet).
+      {
+        path: '/trading-environment',
+        name: 'TradingEnvironment',
+        component: () => import('@/views/trading-environment'),
+        meta: { title: 'Trading Environment', keepAlive: false, icon: 'thunderbolt', permission: ['dashboard'] }
+      },
+      // Risk / Admission panel.
+      {
+        path: '/risk-admission',
+        name: 'RiskAdmission',
+        component: () => import('@/views/risk-admission'),
+        meta: { title: 'Risk & Admission', keepAlive: false, icon: 'safety', permission: ['dashboard'] }
+      },
+      // Operations dashboard.
+      {
+        path: '/operations',
+        name: 'Operations',
+        component: () => import('@/views/operations'),
+        meta: { title: 'Operations', keepAlive: false, icon: 'dashboard', permission: ['dashboard'] }
+      },
       // Legacy chart route.
       {
         path: '/indicator-analysis',
