@@ -1,5 +1,13 @@
 <template>
   <div class="indicator-ide" :class="{ 'theme-dark': isDarkTheme }">
+    <a-alert
+      v-if="builtinIndicator"
+      class="builtin-indicator-banner"
+      type="info"
+      show-icon
+      :message="`内置指标：${builtinIndicator.name}`"
+      :description="`${builtinIndicator.description} · 只读研究模板，可直接在行情图表中启用。`"
+    />
     <!-- Main split panels -->
     <div class="ide-main">
       <div
@@ -955,6 +963,7 @@ import { getNotificationSettings } from '@/api/user'
 import { getWatchlist, addWatchlist, searchSymbols } from '@/api/market'
 import { getPublicSettingsConfig } from '@/api/settings'
 import { extractIndicatorSignalLabels } from '@/utils/indicatorSignalOptions'
+import { BUILTIN_INDICATOR_CATALOG } from '@/constants/quantCatalog'
 import KlineChart from '@/views/indicator-analysis/components/KlineChart.vue'
 import QuickTradePanel from '@/components/QuickTradePanel/QuickTradePanel'
 import { Modal } from 'ant-design-vue'
@@ -999,6 +1008,7 @@ export default {
     return {
       userId: null,
       indicators: [],
+      builtinIndicator: null,
       loadingIndicators: false,
       selectedIndicatorId: undefined,
       chartVisibleIndicatorIds: [],
@@ -1219,6 +1229,7 @@ export default {
     this.restoreIdeUiState()
     this.restoreIdeSelectionPreference()
     this.applyIndicatorRouteSelection()
+    this.loadBuiltinIndicatorRoute()
     this.autoSelectFirstIndicator()
     this.loadSignalAlertNotificationDefaults()
     this.loadSignalAlertTasks()
@@ -1486,6 +1497,13 @@ export default {
         this.pruneChartVisibleIndicatorIds()
         this.applyIndicatorRouteSelection()
       }
+    },
+    loadBuiltinIndicatorRoute () {
+      const raw = this.$route && this.$route.query ? this.$route.query.builtin_indicator_id : ''
+      if (raw === undefined || raw === null || raw === '') return
+      const index = Number(raw) < 0 ? Math.abs(Number(raw)) - 1 : Number(raw)
+      if (!Number.isInteger(index) || index < 0 || index >= BUILTIN_INDICATOR_CATALOG.length) return
+      this.builtinIndicator = BUILTIN_INDICATOR_CATALOG[index]
     },
     applyIndicatorRouteSelection () {
       const query = this.$route && this.$route.query ? this.$route.query : {}

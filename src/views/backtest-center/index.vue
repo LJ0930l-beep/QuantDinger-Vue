@@ -77,6 +77,30 @@
               <a-form-item v-if="mode === 'portfolio'" :label="$t('backtest-center.initialCapital')">
                 <a-input-number v-model="form.initialCapital" :min="10" class="full-width" />
               </a-form-item>
+              <a-form-item :label="$t('strategyV2.frequency')">
+                <a-select
+                  v-model="form.frequency"
+                  class="full-width"
+                  data-testid="backtest-frequency-select"
+                  :placeholder="manifestFrequency"
+                >
+                  <a-select-option v-for="f in availableFrequencies" :key="f" :value="f">{{ f }}</a-select-option>
+                </a-select>
+              </a-form-item>
+              <a-form-item :label="$t('strategyV2.universe')">
+                <a-select
+                  v-model="form.symbol"
+                  class="full-width"
+                  show-search
+                  data-testid="backtest-symbol-select"
+                  allow-clear
+                  :placeholder="universeLabel"
+                >
+                  <a-select-option v-for="s in availableSymbols" :key="s.id" :value="s.id">
+                    {{ s.label }}
+                  </a-select-option>
+                </a-select>
+              </a-form-item>
               <a-form-item :label="$t('backtest-center.commission')">
                 <a-input-number v-model="form.commission" :min="0" :max="1" :step="0.0001" class="full-width" />
               </a-form-item>
@@ -90,7 +114,16 @@
                 </div>
               </a-form-item>
               <a-form-item v-if="mode === 'portfolio' && form.leverageEnabled" :label="$t('strategyV2.leverageMultiplier')">
-                <a-input-number v-model="form.leverage" :min="1" :max="maxLeverage" :step="0.5" class="full-width" />
+                <a-input-number
+                  v-model="form.leverage"
+                  :min="strategyLeverageFloor"
+                  :max="strategyLeverageCap"
+                  :step="strategyLeverageFloor >= 50 ? 1 : 0.5"
+                  class="full-width"
+                />
+                <div class="leverage-contract-hint">
+                  {{ strategyLeverageFloor }}x–{{ strategyLeverageCap }}x
+                </div>
               </a-form-item>
             </div>
 
@@ -287,6 +320,7 @@
             <span class="run-card__status" :class="`status-${item.result_status || 'unknown'}`">{{ historyStatusLabel(item) }}</span>
             <span class="run-card__metrics">
               <b :class="historyReturnTone(item)">{{ formatPercent(item.total_return) }}</b>
+              <b :class="historyReturnTone(item)" class="run-card__amount">${{ formatAmount(historyReturnAmount(item)) }}</b>
               <small>{{ $t('strategyV2.backtest.executions') }} {{ item.total_executions || 0 }} · {{ $t('strategyV2.backtest.closedTrades') }} {{ item.total_trades || 0 }}</small>
             </span>
           </template>
@@ -305,8 +339,10 @@ import { timestampMillisecondsUtc } from '@/utils/utcInstant'
 import { formatBacktestTime } from '@/utils/userTime'
 import {
   compileScriptSource,
+  createScriptSource,
   getScriptSourceDetail,
   getScriptSourceList,
+  getScriptTemplateList,
   getStrategyFactorResearchHistory,
   getStrategyFactorResearchRun,
   getStrategyBacktestHistory,
@@ -314,6 +350,8 @@ import {
   runStrategyFactorResearch,
   runStrategyBacktest
 } from '@/api/strategy'
+import { normalizeScriptTemplate } from '@/views/strategy-ide/components/scriptTemplateCatalog'
+import { strategyDisplay, strategyMeta, strategyTitle } from '@/constants/quantCatalog'
 import PortfolioResult from './PortfolioResult.vue'
 import FactorResearchResult from './FactorResearchResult.vue'
 
@@ -324,11 +362,15 @@ export default {
     return {
       mode: 'portfolio',
       sources: [],
+      templates: [],
       portfolioHistory: [],
       factorHistory: [],
       source: null,
       manifest: null,
       backtestRangePolicy: null,
+      // Prevent a slow detail/compile response from replacing a newer source
+      // selection in the backtest form.
+      sourceSelectionVersion: 0,
       params: {},
       result: null,
       factorResult: null,
@@ -350,7 +392,10 @@ export default {
         commission: 0.0005,
         slippage: 0.0005,
         leverageEnabled: false,
-        leverage: 1
+        leverage: 1,
+        frequency: '',    // user-selectable timeframe (overrides strategy default)
+        symbol: '',       // user-selectable instrument (overrides strategy default)
+        marketType: 'spot'  // 'spot' or 'swap'
       },
       factorForm: {
         factorId: 'momentum_20',
@@ -369,7 +414,16 @@ export default {
       return this.mode === 'portfolio' ? this.result : this.factorResult
     },
     availableSources () {
-      if (this.mode !== 'factor') return this.sources
+      if (this.mode !== 'factor') {
+        const templateSources = this.templates.map(template => ({
+          id: `template:${template.key}`,
+          name: template.title,
+          template_key: template.key,
+          asset_type: template.assetType,
+          is_template: true
+        }))
+        return [...this.sources, ...templateSources]
+      }
       return this.sources.filter(item => item.asset_type === 'portfolio_strategy')
     },
     history () {
@@ -399,12 +453,58 @@ export default {
     leverageAllowed () {
       return Boolean(this.manifest && this.manifest.leverageAllowed)
     },
-    maxLeverage () {
-      return Number((this.manifest && this.manifest.maxLeverage) || 1)
+    strategyLeverageFloor () {
+      if (!this.leverageAllowed) return 1
+      const value = Number(this.manifest && this.manifest.minLeverage)
+      return Number.isFinite(value) && value >= 1 ? value : 1
+    },
+    strategyLeverageCap () {
+      if (!this.leverageAllowed) return 1
+      const value = Number(this.manifest && this.manifest.maxLeverage)
+      return Number.isFinite(value) && value >= this.strategyLeverageFloor ? value : this.strategyLeverageFloor
+    },
+    leverageContractInvalid () {
+      if (!this.form.leverageEnabled || !this.leverageAllowed) return false
+      const value = Number(this.form.leverage)
+      return !Number.isFinite(value) || value < this.strategyLeverageFloor || value > this.strategyLeverageCap
     },
     manifestFrequency () {
       const subscriptions = (this.manifest && this.manifest.subscriptions) || []
       return (this.manifest && this.manifest.primaryFrequency) || (subscriptions[0] && subscriptions[0].frequency) || '-'
+    },
+    availableFrequencies () {
+      // List from source.metadata.suggested_timeframe or fallback
+      const meta = (this.source && this.source.metadata) || {}
+      const s = meta.suggested_timeframe || meta.suggestedTimeframe || ''
+      if (typeof s === 'string' && s.trim()) {
+        return s.split(',').map(x => x.trim()).filter(Boolean)
+      }
+      return ['1m', '5m', '15m', '30m', '1h', '4h', '1d']
+    },
+    availableSymbols () {
+      // Extract from manifest.universe.instruments
+      const universe = (this.manifest && this.manifest.universe) || {}
+      const instruments = Array.isArray(universe.instruments) ? universe.instruments : []
+      if (instruments.length === 0) {
+        // Default common crypto symbols
+        return [
+          { id: 'Crypto:BTC/USDT@spot', label: 'BTC/USDT · 现货', marketType: 'spot' },
+          { id: 'Crypto:ETH/USDT@spot', label: 'ETH/USDT · 现货', marketType: 'spot' },
+          { id: 'Crypto:BTC/USDT@swap', label: 'BTC/USDT · 永续', marketType: 'swap' },
+          { id: 'Crypto:ETH/USDT@swap', label: 'ETH/USDT · 永续', marketType: 'swap' }
+        ]
+      }
+      return instruments.map(i => ({
+        id: typeof i === 'string' ? i : (i.value || i.symbol || JSON.stringify(i)),
+        label: typeof i === 'string' ? i : (i.symbol || i.value || ''),
+        marketType: (typeof i === 'object' && i.marketType) || (String(i).includes('@swap') ? 'swap' : 'spot')
+      }))
+    },
+    selectedMarketType () {
+      // Auto-derive from selected symbol, or user default
+      if (this.form.symbol && this.form.symbol.includes('@swap')) return 'swap'
+      if (this.form.symbol && this.form.symbol.includes('@spot')) return 'spot'
+      return this.form.marketType || 'spot'
     },
     backtestRangeLimitDays () {
       if (!this.backtestRangePolicy) return null
@@ -447,7 +547,7 @@ export default {
       })
     },
     runDisabled () {
-      return !this.manifest || this.backtestRangeExceeded || (this.mode === 'factor' && !this.factorCompatible)
+      return !this.manifest || this.backtestRangeExceeded || this.leverageContractInvalid || (this.mode === 'factor' && !this.factorCompatible)
     },
     strategyTypeLabel () {
       const type = String((this.manifest && this.manifest.strategyType) || 'cta')
@@ -470,6 +570,7 @@ export default {
       if (!this.result) return []
       return [
         { key: 'return', label: this.$t('backtest-center.metrics.totalReturn'), value: this.formatPercent(this.result.totalReturn), tone: Number(this.result.totalReturn) >= 0 ? 'positive' : 'negative' },
+        { key: 'returnAmount', label: this.$t('backtest-center.metrics.totalReturnAmount') || '总收益额', value: '$' + this.formatAmount((Number(this.result.totalReturn) / 100) * Number(this.result.initialCapital || 1000)), tone: Number(this.result.totalReturn) >= 0 ? 'positive' : 'negative' },
         { key: 'benchmark', label: this.$t('strategyV2.backtest.benchmarkReturn'), value: this.result.benchmarkStatus === 'available' ? this.formatPercent(this.result.benchmarkTotalReturn) : '-', tone: Number(this.result.benchmarkTotalReturn) >= 0 ? 'positive' : 'negative' },
         { key: 'excess', label: this.$t('strategyV2.backtest.excessReturn'), value: this.result.benchmarkStatus === 'available' ? this.formatPercent(this.result.excessReturn) : '-', tone: Number(this.result.excessReturn) >= 0 ? 'positive' : 'negative' },
         { key: 'drawdown', label: this.$t('backtest-center.metrics.maxDrawdown'), value: this.formatPercent(this.result.maxDrawdown), tone: 'negative' },
@@ -562,12 +663,18 @@ export default {
     },
     mode (value) {
       this.handleModeChange(value)
+    },
+    'form.leverageEnabled' (value) {
+      if (value && this.leverageAllowed) this.normalizeLeverage()
+    },
+    'form.leverage' () {
+      if (this.form.leverageEnabled && this.leverageAllowed) this.normalizeLeverage()
     }
   },
   async mounted () {
     await this.refreshPage()
-    const routeSourceId = Number(this.$route.query.sourceId)
-    const sourceId = routeSourceId || (this.sources[0] && Number(this.sources[0].id))
+    const routeSourceId = this.$route.query.sourceId ? String(this.$route.query.sourceId) : ''
+    const sourceId = routeSourceId || (this.sources[0] && String(this.sources[0].id))
     if (sourceId) {
       this.form.sourceId = sourceId
       await this.selectSource(sourceId)
@@ -674,11 +781,24 @@ export default {
       try { return JSON.parse(value) } catch (error) { return {} }
     },
     async refreshPage () {
-      await Promise.all([this.loadSources(), this.loadHistory()])
+      await Promise.all([this.loadSources(), this.loadTemplates(), this.loadHistory()])
     },
     async loadSources () {
       const response = await getScriptSourceList()
       this.sources = (response.data && response.data.items) || []
+    },
+    async loadTemplates () {
+      try {
+        const response = await getScriptTemplateList()
+        const items = Array.isArray(response.data) ? response.data : ((response.data && response.data.items) || [])
+        this.templates = items.map(normalizeScriptTemplate).filter(Boolean).map(template => ({
+          ...template,
+          title: strategyTitle(template.key, strategyDisplay(template.key, template.title)),
+          desc: template.desc || (strategyMeta(template.key) && strategyMeta(template.key).description) || ''
+        }))
+      } catch (error) {
+        this.templates = []
+      }
     },
     async loadHistory () {
       this.historyLoading = true
@@ -696,10 +816,10 @@ export default {
     async handleModeChange () {
       this.selectedRun = null
       this.historyVisible = false
-      const currentId = Number(this.form.sourceId)
-      const currentAvailable = this.availableSources.some(item => Number(item.id) === currentId)
+      const currentId = String(this.form.sourceId || '')
+      const currentAvailable = this.availableSources.some(item => String(item.id) === currentId)
       if (!currentAvailable) {
-        const nextSource = this.availableSources[0]
+        const nextSource = this.sources[0]
         this.form.sourceId = nextSource ? Number(nextSource.id) : null
         if (nextSource) await this.selectSource(nextSource.id)
         else {
@@ -712,16 +832,32 @@ export default {
       this.$nextTick(() => this.resizeEquityChart())
     },
     async selectSource (sourceId) {
+      const selectionVersion = ++this.sourceSelectionVersion
+      const isCurrentSelection = () => selectionVersion === this.sourceSelectionVersion
       this.result = null
       this.factorResult = null
       this.selectedRun = null
       this.form.leverageEnabled = false
       this.form.leverage = 1
-      const response = await getScriptSourceDetail(sourceId)
+      let resolvedSourceId = sourceId
+      if (String(sourceId).startsWith('template:')) {
+        const template = this.templates.find(item => `template:${item.key}` === String(sourceId))
+        if (!template) return
+        resolvedSourceId = await this.ensureTemplateSource(template)
+        if (!resolvedSourceId) return
+        if (!isCurrentSelection()) return
+        this.form.sourceId = Number(resolvedSourceId)
+      }
+      const response = await getScriptSourceDetail(resolvedSourceId)
+      if (!isCurrentSelection()) return
       this.source = response.data
-      const compiled = await compileScriptSource({ sourceId })
+      const compiled = await compileScriptSource({ sourceId: Number(resolvedSourceId) })
+      if (!isCurrentSelection()) return
       this.manifest = compiled.data && compiled.data.manifest
       this.backtestRangePolicy = compiled.data && compiled.data.backtestRangePolicy
+      if (this.manifest && this.manifest.leverageAllowed) {
+        this.form.leverage = Number(this.manifest.minLeverage || 1)
+      }
       this.applyBacktestRangePolicy()
       this.params = this.paramDefinitions.reduce((output, item) => {
         output[item.name] = item.default
@@ -729,8 +865,37 @@ export default {
       }, {})
     },
     sourceTypeLabel (item) {
+      if (item && item.is_template) return '内置模板'
       if (String(item.template_key || '').startsWith('robot_v2_')) return this.$t('strategyV2.robot')
       return this.$t(item.asset_type === 'portfolio_strategy' ? 'strategyV2.portfolio' : 'strategyV2.cta')
+    },
+    async ensureTemplateSource (template) {
+      const existing = this.sources.find(item => {
+        const metadata = this.parseObject(item && item.metadata)
+        const key = item && (item.template_key || item.templateKey || metadata.template_key || metadata.templateKey)
+        return String(key || '') === String(template.key)
+      })
+      if (existing && existing.id) return existing.id
+      try {
+        const response = await createScriptSource({
+          name: template.title,
+          description: template.desc,
+          code: template.code,
+          asset_type: template.assetType,
+          template_key: template.key,
+          param_schema: { params: template.params || [] },
+          metadata: { ...(template.metadata || {}), source: 'system_template', template_key: template.key }
+        })
+        const item = response && response.data
+        const id = item && (item.id || item.source_id)
+        if (!id) throw new Error('template source was not created')
+        await this.loadSources()
+        this.$message.success('已将内置策略复制到策略源，可开始回测')
+        return id
+      } catch (error) {
+        this.$message.error('内置策略初始化失败，请稍后重试')
+        return null
+      }
     },
     formatInstrument (item) {
       const marketType = String(item.market_type || item.marketType || '').toLowerCase()
@@ -745,6 +910,13 @@ export default {
     },
     setParam (name, value) {
       this.params = { ...this.params, [name]: value }
+    },
+    normalizeLeverage () {
+      const value = Number(this.form.leverage)
+      const bounded = Number.isFinite(value)
+        ? Math.min(this.strategyLeverageCap, Math.max(this.strategyLeverageFloor, value))
+        : this.strategyLeverageFloor
+      if (bounded !== this.form.leverage) this.form.leverage = bounded
     },
     disabledStartDate (current) {
       if (!current || !this.form.endDate) return false
@@ -797,6 +969,11 @@ export default {
       this.selectedRun = null
       this.startRunTimer()
       try {
+        const strategyParams = {
+          ...this.params,
+          frequency: this.form.frequency || (this.manifest && this.manifest.primaryFrequency) || '',
+          symbol: this.form.symbol || (this.manifest && this.manifest.universe && this.manifest.universe.instruments && this.manifest.universe.instruments[0] && this.manifest.universe.instruments[0].value) || ''
+        }
         const response = await runStrategyBacktest({
           sourceId: this.form.sourceId,
           startDate: this.form.startDate.format('YYYY-MM-DD'),
@@ -806,7 +983,7 @@ export default {
           slippage: this.form.slippage,
           leverageEnabled: this.form.leverageEnabled,
           leverage: this.form.leverageEnabled ? this.form.leverage : 1,
-          params: this.params
+          params: strategyParams
         })
         this.result = response.data
         this.selectedRun = { id: response.data && response.data.runId }
@@ -955,6 +1132,17 @@ export default {
       const number = Number(value || 0)
       return `${signed && number > 0 ? '+' : ''}${number.toFixed(2)}%`
     },
+    formatAmount (value) {
+      const number = Number(value || 0)
+      const sign = number > 0 ? '+' : number < 0 ? '-' : ''
+      const abs = Math.abs(number)
+      return `${sign}${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    },
+    historyReturnAmount (item) {
+      const pct = Number(item && item.total_return || 0)
+      const cap = Number(item && (item.initial_capital || item.initialCapital) || 1000)
+      return (pct / 100) * cap
+    },
     formatRate (value) {
       return `${(Number(value || 0) * 100).toFixed(3)}%`
     },
@@ -1020,6 +1208,7 @@ export default {
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
 .range-limit-alert { margin: 0 0 14px; }
 .switch-row { display: flex; align-items: center; gap: 8px; min-height: 32px; color: #7c8ca1; font-size: 11px; }
+.leverage-contract-hint { margin-top: 5px; color: #7c8ca1; font-size: 11px; }
 .params-section { margin: 2px 0 14px; padding-top: 12px; border-top: 1px solid #eef2f6; }
 .factor-contract-alert { margin: 10px 0 14px; }
 .subheading h3 { margin: 0; color: #26364c; font-size: 14px; }

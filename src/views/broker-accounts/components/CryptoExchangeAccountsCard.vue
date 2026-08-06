@@ -42,11 +42,24 @@
               </div>
               <div class="crypto-item-line">
                 <span v-if="item.api_key_hint" class="crypto-item-hint">{{ item.api_key_hint }}</span>
+                <span v-if="item.environment" class="credential-environment" :class="`credential-environment--${String(item.environment).toLowerCase()}`">
+                  {{ String(item.environment).toLowerCase() === 'testnet' ? 'TESTNET' : String(item.environment).toUpperCase() }}
+                </span>
+                <span v-if="item.market_scope" class="credential-market-scope">{{ item.market_scope }}</span>
                 <span v-if="item.created_at" class="crypto-item-time">{{ formatTime(item.created_at) }}</span>
               </div>
             </div>
           </div>
           <div class="crypto-item-footer">
+            <a-button
+              v-if="isGateTestnet(item)"
+              size="small"
+              class="crypto-view-account-btn"
+              :loading="testingCredentialId === item.id"
+              @click="testSavedCredential(item)"
+            >
+              <a-icon type="api" /> 测试 Gate TestNet
+            </a-button>
             <a-button size="small" class="crypto-view-account-btn" @click="openSnapshotModal(item)">
               <a-icon type="fund" /> {{ $t('trading-assistant.positions.viewAccountPositions') }}
             </a-button>
@@ -119,6 +132,21 @@
           {{ $t('trading-assistant.positions.liveFetchedAt') }}: {{ formatTime(snapshotFetchedAt) }}
         </div>
         <a-tabs v-model="snapshotActiveTab" class="snapshot-tabs">
+          <a-tab-pane key="balances" :tab="balanceTabLabel">
+            <a-table
+              v-if="balanceRows.length"
+              :columns="balanceColumns"
+              :data-source="balanceRows"
+              :pagination="false"
+              size="small"
+              row-key="rowKey"
+              :scroll="{ x: 560 }"
+            />
+            <a-empty
+              v-else
+              :description="snapshotErrors.length ? $t('trading-assistant.positions.fetchFailedShort') : '暂无余额事实'"
+            />
+          </a-tab-pane>
           <a-tab-pane key="swap" :tab="swapTabLabel">
             <a-table
               v-if="swapRows.length"
@@ -171,8 +199,9 @@
 </template>
 
 <script>
-import { listExchangeCredentials, deleteExchangeCredential } from '@/api/credentials'
+import { listExchangeCredentials, deleteExchangeCredential, testSavedExchangeCredential } from '@/api/credentials'
 import { getAccountSnapshot } from '@/api/strategy'
+import { getReadonlyGateAccount } from '@/api/quant-readonly'
 import ExchangeAccountModal from '@/components/ExchangeAccountModal/ExchangeAccountModal.vue'
 import RenameCredentialModal from '@/components/RenameCredentialModal/RenameCredentialModal.vue'
 import { filterCryptoExchangeCredentials, getExchangeDisplayName } from '@/utils/exchangeCredential'
@@ -207,6 +236,7 @@ export default {
     return {
       items: [],
       loading: false,
+      testingCredentialId: null,
       addModalVisible: false,
       renameModalVisible: false,
       renameTarget: null,
@@ -214,6 +244,7 @@ export default {
       snapshotLoading: false,
       snapshotTarget: null,
       snapshotActiveTab: 'swap',
+      balanceRows: [],
       swapRows: [],
       spotRows: [],
       orderRows: [],
@@ -232,6 +263,10 @@ export default {
       const name = this.credentialAlias(item)
       const ex = this.exchangeDisplayName(item.exchange_id)
       return `${this.$t('trading-assistant.positions.accountPositionsTitle')} · ${ex} (${name})`
+    },
+    balanceTabLabel () {
+      const n = this.balanceRows.length
+      return n > 0 ? `余额 (${n})` : '余额'
     },
     swapTabLabel () {
       const n = this.swapRows.length
@@ -261,6 +296,16 @@ export default {
         { title: this.$t('trading-assistant.table.side'), dataIndex: 'sideLabel', width: 80 },
         { title: this.$t('trading-assistant.table.size'), dataIndex: 'sizeLabel', width: 120 },
         { title: this.$t('trading-assistant.table.entryPrice'), dataIndex: 'entryLabel', width: 120 }
+      ]
+    },
+    balanceColumns () {
+      return [
+        { title: '资产', dataIndex: 'asset', width: 110 },
+        { title: '市场', dataIndex: 'marketType', width: 90 },
+        { title: '总额', dataIndex: 'totalLabel', width: 120 },
+        { title: '可用', dataIndex: 'availableLabel', width: 120 },
+        { title: '冻结', dataIndex: 'lockedLabel', width: 120 },
+        { title: '估值币种', dataIndex: 'valuationCcy', width: 100 }
       ]
     },
     orderColumns () {
@@ -302,6 +347,39 @@ export default {
       const name = this.exchangeDisplayName(id)
       return name.charAt(0).toUpperCase()
     },
+    isGateTestnet (item) {
+      return String(item && item.exchange_id || '').toLowerCase() === 'gate' &&
+        String(item && item.environment || '').toLowerCase() === 'testnet'
+    },
+    async testSavedCredential (item) {
+      if (!item || !item.id) return
+      this.testingCredentialId = item.id
+      try {
+        const response = await testSavedExchangeCredential(item.id)
+        if (response && response.code === 1) {
+          const tested = response.data && Array.isArray(response.data.tested_markets)
+            ? response.data.tested_markets.join(', ')
+            : ''
+          this.$message.success(tested ? `Gate TestNet 连接成功：${tested}` : 'Gate TestNet 连接成功')
+        } else if (response && response.data && (
+          Array.isArray(response.data.tested_markets) || Array.isArray(response.data.failed_markets)
+        )) {
+          const tested = Array.isArray(response.data.tested_markets)
+            ? response.data.tested_markets.join(', ')
+            : 'none'
+          const failed = Array.isArray(response.data.failed_markets)
+            ? response.data.failed_markets.map(item => `${item.market_type || 'unknown'} (${item.code || 'failed'})`).join(', ')
+            : 'unknown'
+          this.$message.error(`Gate TestNet 部分成功：已验证 ${tested}；失败 ${failed}`)
+        } else {
+          this.$message.error((response && response.msg) || 'Gate TestNet 连接失败')
+        }
+      } catch (_) {
+        this.$message.error('Gate TestNet 连接失败')
+      } finally {
+        this.testingCredentialId = null
+      }
+    },
     iconBg (id) {
       return ICON_COLORS[id] || 'var(--primary-color, #1890ff)'
     },
@@ -319,11 +397,11 @@ export default {
     mapPositionRows (rows) {
       return (rows || []).map((r, idx) => {
         const side = String(r.side || '').toLowerCase()
-        const size = parseFloat(r.size || 0)
-        const entry = parseFloat(r.entry_price || 0)
+        const size = parseFloat(r.size ?? r.quantity ?? 0)
+        const entry = parseFloat(r.entry_price ?? r.average_entry_price ?? 0)
         return {
-          rowKey: r.inst_id || `${r.symbol}-${side}-${idx}`,
-          symbol: r.symbol || '',
+          rowKey: r.inst_id || r.instrument_id || `${r.symbol || ''}-${side}-${idx}`,
+          symbol: r.symbol || r.instrument_id || '',
           sideLabel: side === 'long'
             ? this.$t('trading-assistant.table.long')
             : side === 'short'
@@ -337,12 +415,12 @@ export default {
     mapOrderRows (rows) {
       return (rows || []).map((r, idx) => {
         const side = String(r.side || '').toLowerCase()
-        const px = parseFloat(r.price || 0)
-        const amt = parseFloat(r.amount || 0)
-        const filled = parseFloat(r.filled || 0)
+        const px = parseFloat(r.price ?? r.average_fill_price ?? 0)
+        const amt = parseFloat(r.amount ?? r.quantity ?? 0)
+        const filled = parseFloat(r.filled ?? r.filled_quantity ?? 0)
         return {
-          rowKey: r.exchange_order_id || `${r.symbol}-${side}-${idx}`,
-          symbol: r.symbol || '',
+          rowKey: r.exchange_order_id || `${r.symbol || r.instrument_id || ''}-${side}-${idx}`,
+          symbol: r.symbol || r.instrument_id || '',
           sideLabel: side === 'buy' || side === 'long'
             ? this.$t('trading-assistant.table.buy')
             : side === 'sell' || side === 'short'
@@ -355,6 +433,66 @@ export default {
           statusLabel: String(r.status || '--')
         }
       })
+    },
+    mapBalanceRows (rows, marketType) {
+      return (rows || []).map((r, idx) => ({
+        rowKey: `${marketType}-${r.asset || idx}`,
+        asset: r.asset || '--',
+        marketType: String(marketType || '--').toUpperCase(),
+        totalLabel: String(r.total ?? '--'),
+        availableLabel: String(r.available ?? '--'),
+        lockedLabel: String(r.locked ?? '--'),
+        valuationCcy: r.valuation_ccy || r.valuationCcy || '--'
+      }))
+    },
+    async openGateTestnetSnapshot (item) {
+      const configuredScope = String(item && item.market_scope || 'both').toLowerCase()
+      const markets = configuredScope === 'spot'
+        ? ['spot']
+        : configuredScope === 'swap'
+          ? ['perpetual']
+          : ['spot', 'perpetual']
+      const results = await Promise.all(markets.map(async marketType => {
+        try {
+          const response = await getReadonlyGateAccount({
+            credential_id: item.id,
+            market_type: marketType,
+            account_scope: 'gate-testnet',
+            instrument_id: ''
+          })
+          const data = response && response.data ? response.data : response
+          if (!data || data.status !== 'READY') {
+            throw new Error('Gate TestNet 只读账户暂不可用')
+          }
+          return { marketType, data }
+        } catch (error) {
+          return { marketType, error }
+        }
+      }))
+      let readyCount = 0
+      const errors = []
+      results.forEach(result => {
+        if (result.error) {
+          const backendMessage = result.error.backendMessage ||
+            (result.error.response && result.error.response.data && result.error.response.data.msg)
+          errors.push(`${String(result.marketType).toUpperCase()}: ${backendMessage || result.error.message || '读取失败'}`)
+          return
+        }
+        readyCount += 1
+        const data = result.data
+        this.balanceRows = this.balanceRows.concat(this.mapBalanceRows(data.balances, result.marketType))
+        const positions = this.mapPositionRows(data.positions || [])
+        if (result.marketType === 'spot') this.spotRows = this.spotRows.concat(positions)
+        else this.swapRows = this.swapRows.concat(positions)
+        this.orderRows = this.orderRows.concat(this.mapOrderRows(data.orders || []))
+        if (!this.snapshotFetchedAt || String(data.observed_at || '') > String(this.snapshotFetchedAt)) {
+          this.snapshotFetchedAt = data.observed_at || null
+        }
+      })
+      this.snapshotErrors = errors
+      this.snapshotPartial = readyCount > 0 && errors.length > 0
+      if (!readyCount && errors.length) this.$message.error(errors[0])
+      else if (errors.length) this.$message.warning(errors[0])
     },
     async loadCredentials () {
       this.loading = true
@@ -388,8 +526,9 @@ export default {
     async openSnapshotModal (item) {
       this.snapshotTarget = item
       this.snapshotModalVisible = true
-      this.snapshotActiveTab = 'swap'
+      this.snapshotActiveTab = this.isGateTestnet(item) ? 'balances' : 'swap'
       this.snapshotLoading = true
+      this.balanceRows = []
       this.swapRows = []
       this.spotRows = []
       this.orderRows = []
@@ -397,6 +536,10 @@ export default {
       this.snapshotErrors = []
       this.snapshotPartial = false
       try {
+        if (this.isGateTestnet(item)) {
+          await this.openGateTestnetSnapshot(item)
+          return
+        }
         const res = await getAccountSnapshot({ credential_id: item.id })
         const data = (res && res.data) ? res.data : {}
         this.swapRows = this.mapPositionRows(data.swap_positions || [])
@@ -584,6 +727,26 @@ export default {
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   word-break: break-all;
+}
+.credential-environment,
+.credential-market-scope {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.credential-environment--testnet { color: #087f5b; background: #d3f9d8; }
+.credential-environment--live { color: #a61e4d; background: #ffe3e3; }
+.credential-market-scope { color: #495057; background: #f1f3f5; font-weight: 600; }
+.crypto-card.theme-dark {
+  .credential-environment--testnet { color: #8ce99a; background: rgba(47, 158, 68, .24); }
+  .credential-environment--live { color: #ffa8a8; background: rgba(201, 42, 42, .24); }
+  .credential-market-scope { color: rgba(255, 255, 255, .72); background: rgba(255, 255, 255, .1); }
 }
 .crypto-item-time { color: #bfbfbf; font-size: 11px; }
 .crypto-card.theme-dark .crypto-item-time { color: rgba(255, 255, 255, 0.4); }

@@ -140,9 +140,13 @@
             {{ $t('liveMonitor.health') }}
             <strong :class="healthClass(selectedStrategy)">{{ healthLabel(selectedStrategy) }}</strong>
           </span>
+          <span v-if="healthReasonLabel(selectedStrategy)" class="runtime-health-reason">
+            <a-icon type="info-circle" />
+            <strong>{{ healthReasonLabel(selectedStrategy) }}</strong>
+          </span>
           <span>
             {{ $t('strategyCenter.console.latency') }}
-            <strong>{{ health(selectedStrategy).latency_ms || health(selectedStrategy).loop_latency_ms || '-' }} ms</strong>
+            <strong>{{ latencyDisplay(selectedStrategy) }}</strong>
           </span>
           <span>
             {{ $t('liveMonitor.pendingOrders') }}
@@ -178,7 +182,7 @@
             </div>
             <div>
               <span>{{ $t('strategyCenter.console.leverage') }}</span>
-              <strong>{{ leverageDisplay }}</strong>
+              <strong :class="{ 'metric-invalid': gateLeverageInvalid }">{{ leverageDisplay }}</strong>
               <small>{{ leverageMarketLabel }}</small>
             </div>
           </div>
@@ -284,12 +288,12 @@ import TradingRecords from './TradingRecords.vue'
 import StrategyReviewReport from './StrategyReviewReport.vue'
 import StrategyLogs from './StrategyLogs.vue'
 import { getExchangeDisplayName } from '@/utils/exchangeCredential'
+import { evaluateGateLeverage } from '@/utils/gateLeverageStatus'
 import {
   normalizeTimestampMilliseconds,
   strategyExchangeId,
   strategyExecutionMode,
   strategyLeverage,
-  strategyLastActivity,
   strategyQuoteCurrency,
   strategySymbol,
   strategyTradingConfig,
@@ -380,6 +384,7 @@ export default {
     },
     leverageDisplay () {
       if (!this.isLiveFinancial) return '—'
+      if (this.gateLeverageInvalid) return this.$t('strategyV2.gateLeverageContractInvalid')
       return `${strategyLeverage(this.selectedStrategy).toLocaleString(undefined, { maximumFractionDigits: 2 })}×`
     },
     leverageMarketLabel () {
@@ -387,7 +392,17 @@ export default {
       const marketType = String(this.tradingConfig(this.selectedStrategy).market_type || this.selectedStrategy.market_type || '').toLowerCase()
       return marketType === 'spot'
         ? this.$t('strategyCenter.console.spotMarket')
-        : this.$t('strategyCenter.console.swapMarket')
+        : `${this.$t('strategyCenter.console.swapMarket')} · Gate 50–100x · ${this.$t('strategyCenter.console.exchangeLeverageUnverified')}`
+    },
+    gateLeverageInvalid () {
+      if (!this.selectedStrategy || !this.isLiveFinancial) return false
+      const config = this.tradingConfig(this.selectedStrategy)
+      return !evaluateGateLeverage({
+        exchange: strategyExchangeId(this.selectedStrategy),
+        marketType: config.market_type || this.selectedStrategy.market_type,
+        leverageEnabled: config.leverage_enabled,
+        leverage: config.leverage || this.selectedStrategy.leverage
+      }).valid
     }
   },
   watch: {
@@ -488,8 +503,13 @@ export default {
       return String(this.health(strategy).health || (this.isRunning(strategy) ? 'unknown' : 'inactive')).toLowerCase()
     },
     healthLabel (strategy) { return this.$t(`liveMonitor.${this.healthState(strategy)}`) },
+    healthReasonLabel (strategy) {
+      if (this.leverageContractIssue(strategy)) return this.$t('strategyV2.gateLeverageContractInvalid')
+      const reason = String(this.health(strategy).health_reason || '').toLowerCase()
+      return reason ? this.$t(`liveMonitor.${reason}`) : ''
+    },
     healthClass (strategy) { return `health-${this.healthState(strategy)}` },
-    needsAttention (strategy) { return ['degraded', 'stale', 'offline'].includes(this.healthState(strategy)) || Number(this.health(strategy).failed_orders || 0) > 0 },
+    needsAttention (strategy) { return this.leverageContractIssue(strategy) || ['degraded', 'stale', 'offline'].includes(this.healthState(strategy)) || Number(this.health(strategy).failed_orders || 0) > 0 },
     statusClass (strategy) { return this.needsAttention(strategy) ? 'warning' : (this.isRunning(strategy) ? 'running' : 'stopped') },
     statusLabel (strategy) { return this.needsAttention(strategy) ? this.healthLabel(strategy) : (this.isRunning(strategy) ? this.$t('systemOverview.running') : this.$t('systemOverview.stopped')) },
     strategyPnl (strategy) {
@@ -498,7 +518,23 @@ export default {
       return Number.isFinite(value) ? value : null
     },
     lastActivity (strategy) {
-      return this.health(strategy).last_heartbeat_at || strategyLastActivity(strategy)
+      // A strategy row's updated_at is not a worker heartbeat.  Showing it as
+      // a heartbeat makes a queued command look alive when no worker exists.
+      return this.health(strategy).last_heartbeat_at || ''
+    },
+    latencyDisplay (strategy) {
+      const value = Number(this.health(strategy).latency_ms || this.health(strategy).loop_latency_ms || 0)
+      return value > 0 ? `${value} ms` : '-'
+    },
+    leverageContractIssue (strategy) {
+      if (!strategy || this.executionMode(strategy) !== 'live') return false
+      const config = this.tradingConfig(strategy)
+      return !evaluateGateLeverage({
+        exchange: strategyExchangeId(strategy),
+        marketType: config.market_type || strategy.market_type,
+        leverageEnabled: config.leverage_enabled,
+        leverage: config.leverage || strategy.leverage
+      }).valid
     },
     pnlClass (value) { const number = Number(value || 0); return number > 0 ? 'profit' : number < 0 ? 'loss' : '' },
     formatPnl (value) {
@@ -579,6 +615,8 @@ export default {
 .runtime-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; margin: 10px 2px 12px; color: #788391; font-size: 12px; }
 .runtime-status-bar > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .runtime-status-bar strong { color: #202a37; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.runtime-health-reason { color: #ad6800; }
+.runtime-health-reason strong { color: inherit; }
 .health-healthy { color: #25a25a !important; }.health-degraded,.health-stale { color: #d18425 !important; }.health-offline { color: #d95656 !important; }
 .metric-section { margin-bottom: 12px; }
 .metric-section-head { display: flex; align-items: center; justify-content: space-between; min-height: 28px; padding: 0 2px 6px; }
@@ -592,6 +630,7 @@ export default {
 .performance-strip > div { min-height: 72px; }
 .financial-strip span,.performance-strip span { display: block; margin-bottom: 4px; overflow: hidden; color: #7e8896; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .financial-strip strong,.performance-strip strong { display: block; overflow: hidden; color: #202a37; font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.financial-strip strong.metric-invalid { color: #cf1322; font-size: 12px; white-space: normal; }
 .financial-strip small,.performance-strip small { display: block; margin-top: 3px; color: #98a0ab; font-size: 10px; font-weight: 500; line-height: 1.3; }
 .financial-strip .primary-financial-card { border-color: color-mix(in srgb, var(--primary-color, #1890ff) 32%, #e2e7ee); background: color-mix(in srgb, var(--primary-color, #1890ff) 5%, #fff); }
 .financial-strip .primary-financial-card strong { font-size: 18px; }

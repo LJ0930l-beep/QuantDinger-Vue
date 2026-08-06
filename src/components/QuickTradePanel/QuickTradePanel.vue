@@ -204,20 +204,24 @@
                 <div class="qt-leverage-slider-wrap">
                   <a-slider
                     v-model="leverage"
-                    :min="1"
-                    :max="125"
+                    :min="leverageBounds.min"
+                    :max="leverageBounds.max"
                     :marks="leverageMarks"
                     :tipFormatter="v => v + 'x'"
                   />
                 </div>
                 <a-input-number
                   v-model="leverage"
-                  :min="1"
-                  :max="125"
+                  :min="leverageBounds.min"
+                  :max="leverageBounds.max"
                   :formatter="v => `${v}x`"
                   :parser="v => String(v).replace('x', '')"
                   class="qt-leverage-input"
                 />
+              </div>
+              <div class="qt-hint-text qt-leverage-contract-hint">{{ leverageContractLabel }}</div>
+              <div v-if="gateLeverageInvalid" class="qt-hint-text qt-leverage-contract-error">
+                Gate 永续合约杠杆必须在 {{ leverageBounds.min }}–{{ leverageBounds.max }}x 之间，当前值不会被静默修改。
               </div>
               <div class="qt-label qt-label-spaced">{{ $t('quickTrade.marginMode') }}</div>
               <a-radio-group v-model="marginMode" size="small" button-style="solid" class="qt-margin-radio">
@@ -423,7 +427,8 @@
 <script>
 import { mapState } from 'vuex'
 import { listExchangeCredentials } from '@/api/credentials'
-import { formatExchangeCredentialLabel, isQuickTradeExchangeCredential } from '@/utils/exchangeCredential'
+import { formatExchangeCredentialLabel, isQuickTradeExchangeCredential, normalizeExchangeCredentialId } from '@/utils/exchangeCredential'
+import { evaluateGateLeverage, leverageBoundsForVenue } from '@/utils/gateLeverageStatus'
 import ExchangeAccountModal from '@/components/ExchangeAccountModal/ExchangeAccountModal.vue'
 import { placeQuickOrder, getQuickTradeBalance, getQuickTradePosition, getQuickTradeHistory, closeQuickTradePosition } from '@/api/quick-trade'
 import { searchSymbols, getWatchlist } from '@/api/market'
@@ -541,8 +546,31 @@ export default {
     isSwapMode () {
       return this.isCryptoMarket && this.tradeMode === 'swap'
     },
+    selectedCredentialExchange () {
+      return normalizeExchangeCredentialId(this.selectedCredential && this.selectedCredential.exchange_id)
+    },
+    leverageBounds () {
+      return leverageBoundsForVenue({
+        exchange: this.selectedCredentialExchange,
+        marketType: this.effectiveMarketType
+      })
+    },
+    gateLeverageStatus () {
+      return evaluateGateLeverage({
+        exchange: this.selectedCredentialExchange,
+        marketType: this.effectiveMarketType,
+        leverage: this.leverage
+      })
+    },
+    gateLeverageInvalid () {
+      return this.isSwapMode && this.gateLeverageStatus.applicable && !this.gateLeverageStatus.valid
+    },
+    leverageContractLabel () {
+      if (this.gateLeverageStatus.applicable) return 'Gate 永续合约杠杆范围：50–100x'
+      return '杠杆范围将由所选交易所账户事实校验'
+    },
     leverageMarks () {
-      const keys = this.embeddedIde ? [1, 50, 125] : [1, 25, 50, 100, 125]
+      const keys = this.leverageBounds.marks
       return keys.reduce((acc, v) => {
         acc[v] = `${v}x`
         return acc
@@ -592,7 +620,7 @@ export default {
       return 4
     },
     canSubmit () {
-      return this.tradableMarketSupported && this.selectedCredentialId && this.selectedCredential && this.currentSymbol && this.amount > 0 && !this.submitting
+      return this.tradableMarketSupported && this.selectedCredentialId && this.selectedCredential && this.currentSymbol && this.amount > 0 && !this.submitting && !this.gateLeverageInvalid
     },
     selectedCredential () {
       return this.credentials.find(c => c.id === this.selectedCredentialId)
@@ -666,6 +694,7 @@ export default {
     },
     selectedCredentialId (val) {
       // Reload position when credential changes
+      this.normalizeLeverageForVenue()
       if (val && this.currentSymbol) {
         this.loadPosition()
       }
@@ -692,6 +721,7 @@ export default {
         this.tradeMode = 'spot'
         return
       }
+      this.normalizeLeverageForVenue()
       this.$nextTick(() => {
         if (this.selectedCredentialId) {
           this.loadBalance()
@@ -1093,8 +1123,15 @@ export default {
         return
       }
       this.selectedCredentialId = credId
+      this.normalizeLeverageForVenue()
       await this.loadBalance()
       await this.loadPosition()
+    },
+    normalizeLeverageForVenue () {
+      if (!this.isSwapMode || !this.gateLeverageStatus.applicable) return
+      // Only migrate the historical component default. A user-entered value
+      // outside the venue contract stays visible and blocks submission.
+      if (Number(this.leverage) === 5) this.leverage = this.leverageBounds.min
     },
     async loadBalance () {
       if (!this.selectedCredentialId) return

@@ -1,0 +1,125 @@
+/* Product-wide cyberpunk surface: restrained neon, readable states, no trading behavior. */
+body.dark,
+body.realdark {
+  --qd-cyber-cyan: #2de2e6;
+  --qd-cyber-blue: #4c8dff;
+  --qd-cyber-purple: #b36bff;
+  --qd-cyber-green: #70e000;
+  --qd-cyber-red: #ff5370;
+  --qd-cyber-panel: rgba(10, 17, 29, .92);
+  --qd-cyber-border: rgba(45, 226, 230, .22);
+  background:
+    radial-gradient(circle at 9% 12%, rgba(45, 226, 230, .08), transparent 27rem),
+    radial-gradient(circle at 87% 8%, rgba(179, 107, 255, .08), transparent 24rem),
+    linear-gradient(rgba(45, 226, 230, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 226, 230, .035) 1px, transparent 1px),
+    #050811;
+  background-size: auto, auto, 32px 32px, 32px 32px, auto;
+  color: #dce7f7;
+
+  .ant-layout,
+  .ant-layout-content,
+  .ant-pro-basicLayout-content,
+  .ant-layout-header,
+  .ant-pro-global-header {
+    background: transparent !important;
+  }
+
+  .ant-layout-header,
+  .ant-pro-global-header {
+    border-bottom: 1px solid var(--qd-cyber-border) !important;
+    box-shadow: 0 0 24px rgba(45, 226, 230, .08), inset 0 -1px 0 rgba(179, 107, 255, .08) !important;
+  }
+
+  .ant-card,
+  .ant-modal-content,
+  .ant-drawer-content,
+  .ant-table-wrapper,
+  .panel,
+  .hero-card,
+  .builtin-template-panel,
+  .strategy-v2-summary,
+  .source-summary {
+    border-color: var(--qd-cyber-border) !important;
+    background: var(--qd-cyber-panel) !important;
+    box-shadow: 0 14px 42px rgba(0, 0, 0, .25), inset 0 0 0 1px rgba(179, 107, 255, .04) !important;
+  }
+
+  .ant-card-head,
+  .ant-modal-header,
+  .ant-modal-footer,
+  .ant-drawer-header {
+    border-color: var(--qd-cyber-border) !important;
+    background: transparent !important;
+  }
+
+  .ant-btn-primary,
+  .ant-btn-primary:hover,
+  .ant-btn-primary:focus {
+    border-color: var(--qd-cyber-cyan) !important;
+    background: linear-gradient(135deg, rgba(45, 226, 230, .24), rgba(76, 141, 255, .24)) !important;
+    color: #e9ffff !important;
+    box-shadow: 0 0 18px rgba(45, 226, 230, .22) !important;
+  }
+
+  .ant-btn:not(.ant-btn-primary):hover,
+  .ant-btn:not(.ant-btn-primary):focus {
+    border-color: var(--qd-cyber-cyan) !important;
+    color: var(--qd-cyber-cyan) !important;
+  }
+
+  .ant-input,
+  .ant-input-number,
+  .ant-select-selection,
+  .ant-picker {
+    border-color: rgba(76, 141, 255, .38) !important;
+    background: rgba(3, 9, 18, .74) !important;
+  }
+
+  .ant-input:focus,
+  .ant-input-number-focused,
+  .ant-select-focused .ant-select-selection,
+  .ant-picker-focused {
+    border-color: var(--qd-cyber-cyan) !important;
+    box-shadow: 0 0 0 2px rgba(45, 226, 230, .12), 0 0 14px rgba(45, 226, 230, .16) !important;
+  }
+
+  .ant-tag-blue,
+  .ant-tag-cyan { border-color: rgba(45, 226, 230, .5) !important; background: rgba(45, 226, 230, .11) !important; color: var(--qd-cyber-cyan) !important; }
+  .ant-tag-purple { border-color: rgba(179, 107, 255, .5) !important; background: rgba(179, 107, 255, .11) !important; color: #d4a7ff !important; }
+  .ant-tag-green { border-color: rgba(112, 224, 0, .46) !important; background: rgba(112, 224, 0, .1) !important; color: #a8ff6b !important; }
+
+  .ant-tabs-tab-active,
+  .ant-tabs-tab:hover,
+  .ant-menu-dark .ant-menu-item-selected,
+  .ant-menu-dark .ant-menu-item:hover {
+    color: var(--qd-cyber-cyan) !important;
+  }
+
+  .ant-tabs-ink-bar { background: linear-gradient(90deg, var(--qd-cyber-cyan), var(--qd-cyber-purple)) !important; }
+
+  .strategy-center,
+  .backtest-page,
+  .indicator-community-container,
+  .indicator-ide-page {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .strategy-center::before,
+  .backtest-page::before,
+  .indicator-community-container::before,
+  .indicator-ide-page::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    pointer-events: none;
+    content: '';
+    background: linear-gradient(115deg, transparent 0 46%, rgba(45, 226, 230, .04) 50%, transparent 54%);
+    opacity: .5;
+  }
+
+  .system-health i,
+  .system-health:not(.is-warning) i { background: var(--qd-cyber-green) !important; box-shadow: 0 0 12px rgba(112, 224, 0, .75) !important; }
+  .system-health.is-warning i { background: var(--qd-cyber-red) !important; box-shadow: 0 0 12px rgba(255, 83, 112, .7) !important; }
+}

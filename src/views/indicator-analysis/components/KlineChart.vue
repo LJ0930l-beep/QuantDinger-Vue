@@ -583,7 +583,7 @@ export default {
     const indicatorButtons = ref([
       {
         id: 'sma',
-        name: 'SMA',
+        name: '\u7b80\u5355\u79fb\u52a8\u5e73\u5747\u7ebf (SMA)',
         shortName: 'SMA',
         type: 'line',
         defaultParams: { length: 20 },
@@ -591,7 +591,7 @@ export default {
       },
       {
         id: 'ema',
-        name: 'EMA',
+        name: '\u6307\u6570\u79fb\u52a8\u5e73\u5747\u7ebf (EMA)',
         shortName: 'EMA',
         type: 'line',
         defaultParams: { length: 20 },
@@ -599,7 +599,7 @@ export default {
       },
       {
         id: 'rsi',
-        name: 'RSI',
+        name: '\u76f8\u5bf9\u5f3a\u5f31\u6307\u6807 (RSI)',
         shortName: 'RSI',
         type: 'line',
         defaultParams: { length: 14 },
@@ -607,7 +607,7 @@ export default {
       },
       {
         id: 'macd',
-        name: 'MACD',
+        name: '\u6307\u6570\u5e73\u6ed1\u5f02\u540c\u79fb\u52a8\u5e73\u5747\u7ebf (MACD)',
         shortName: 'MACD',
         type: 'macd',
         defaultParams: { fast: 12, slow: 26, signal: 9 },
@@ -619,7 +619,7 @@ export default {
       },
       {
         id: 'bb',
-        name: 'Bollinger Bands',
+        name: '\u5e03\u6797\u5e26 (BOLL)',
         shortName: 'BB',
         type: 'band',
         defaultParams: { length: 20, mult: 2 },
@@ -630,7 +630,7 @@ export default {
       },
       {
         id: 'atr',
-        name: 'ATR',
+        name: '\u771f\u5b9e\u6ce2\u52a8\u5e45\u5ea6\u5747\u503c (ATR)',
         shortName: 'ATR',
         type: 'line',
         defaultParams: { period: 14 },
@@ -638,7 +638,7 @@ export default {
       },
       {
         id: 'cci',
-        name: 'CCI',
+        name: '\u5546\u54c1\u901a\u9053\u6307\u6570 (CCI)',
         shortName: 'CCI',
         type: 'line',
         defaultParams: { length: 20 },
@@ -646,7 +646,7 @@ export default {
       },
       {
         id: 'williams',
-        name: 'Williams %R',
+        name: '\u5a01\u5ec9\u59c6\u65af %R',
         shortName: 'W%R',
         type: 'line',
         defaultParams: { length: 14 },
@@ -654,7 +654,7 @@ export default {
       },
       {
         id: 'mfi',
-        name: 'MFI',
+        name: '\u8d44\u91d1\u6d41\u91cf\u6307\u6807 (MFI)',
         shortName: 'MFI',
         type: 'line',
         defaultParams: { length: 14 },
@@ -662,16 +662,16 @@ export default {
       },
       {
         id: 'adx',
-        name: 'ADX',
+        name: '\u5e73\u5747\u8d8b\u5411\u6307\u6570 (ADX)',
         shortName: 'ADX',
         type: 'adx',
         defaultParams: { length: 14 },
         paramSchema: [{ key: 'length', labelKey: 'indicatorIde.editor.period', type: 'number', min: 1, max: 200, step: 1 }]
       },
-      { id: 'obv', name: 'OBV', shortName: 'OBV', type: 'line', defaultParams: {}, paramSchema: [] },
+      { id: 'obv', name: '\u80fd\u91cf\u6f6e (OBV)', shortName: 'OBV', type: 'line', defaultParams: {}, paramSchema: [] },
       {
         id: 'adosc',
-        name: 'ADOSC',
+        name: '\u7d2f\u79ef\u6d3e\u53d1\u9707\u8361\u6307\u6807 (ADOSC)',
         shortName: 'ADOSC',
         type: 'line',
         defaultParams: { fast: 3, slow: 10 },
@@ -680,10 +680,10 @@ export default {
           { key: 'slow', labelKey: 'indicatorIde.editor.slowLine', type: 'number', min: 2, max: 200, step: 1 }
         ]
       },
-      { id: 'ad', name: 'AD', shortName: 'AD', type: 'line', defaultParams: {}, paramSchema: [] },
+      { id: 'ad', name: '\u7d2f\u79ef\u6d3e\u53d1\u7ebf (A/D)', shortName: 'AD', type: 'line', defaultParams: {}, paramSchema: [] },
       {
         id: 'kdj',
-        name: 'KDJ',
+        name: 'KDJ \u968f\u673a\u6307\u6807',
         shortName: 'KDJ',
         type: 'line',
         defaultParams: { period: 9, k: 3, d: 3 },
